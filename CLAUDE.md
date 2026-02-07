@@ -173,9 +173,29 @@ pnpm turbo dev                  # Start all dev servers
 ## Key File References
 
 - `Plan.md` — Master implementation plan with all tasks
+- `tasks/lessons.md` — Lessons learned (gotchas, version mismatches, patterns)
+- `tasks/todo.md` — Task tracking with completion status
 - `packages/shared/src/schemas/` — All Zod schemas (source of truth for types)
 - `packages/shared/src/constants/tiers.ts` — Subscription tier configuration
 - `packages/shared/src/constants/pipeline.ts` — LOCAL_MODEL_POOL and pipeline thresholds
+- `packages/backend/src/trpc/router.ts` — Root appRouter (exports AppRouter type)
+- `packages/backend/src/db/queries/` — All Neo4j Cypher queries
+- `packages/ai-pipeline/src/orchestrator.ts` — Pipeline entry point (runPipeline)
+- `packages/frontend/src/lib/trpc.ts` — tRPC React client setup
+- `packages/frontend/src/stores/debate-store.ts` — Zustand argument tree store
 - `.env.example` — All environment variables with descriptions
 - `docker-compose.yml` — Development container stack
 - `docker-compose.prod.yml` — Production stack for Hetzner CX33 Nuremberg
+
+## Cross-Package Import Rules
+
+Every workspace package that gets imported by another MUST have these fields in package.json:
+```json
+{
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": { "types": "./src/index.ts", "default": "./src/index.ts" } }
+}
+```
+Every package with `"build": "tsc"` MUST have `"noEmit": false` in tsconfig.json.
+Every package using Node.js APIs MUST have `@types/node` as its own devDependency.

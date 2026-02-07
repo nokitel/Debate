@@ -11,7 +11,7 @@ globs: ["packages/backend/**"]
 - tRPC v11 for type-safe API procedures
 - Neo4j driver v5 for graph database
 - Auth.js v5 for authentication
-- SSE via native `ReadableStream` for pipeline progress
+- SSE via `res.write()` for pipeline progress (NOT ReadableStream — that's for edge runtimes)
 
 ## tRPC Pattern
 
@@ -69,29 +69,38 @@ export async function createDebate(
 
 ## SSE Pattern
 
+SSE uses `res.write()` with Express (NOT ReadableStream — that's for edge runtimes):
+
 ```typescript
 // packages/backend/src/sse/pipeline-stream.ts
+import type { Response } from "express";
 import { SSEEvent, SSEEventSchema } from "@dialectical/shared";
 
-export function createPipelineStream(): {
-  stream: ReadableStream;
-  emit: (event: SSEEvent) => void;
-  close: () => void;
-} {
-  let controller: ReadableStreamDefaultController;
-  const stream = new ReadableStream({
-    start(c) { controller = c; },
-    cancel() { /* cleanup */ },
-  });
+// PipelineStreamManager handles multiple clients per pipeline run
+class PipelineStreamManager {
+  private streams = new Map<string, ActiveStream[]>();
 
-  return {
-    stream,
-    emit: (event: SSEEvent) => {
-      const validated = SSEEventSchema.parse(event);
-      controller.enqueue(`data: ${JSON.stringify(validated)}\n\n`);
-    },
-    close: () => controller.close(),
-  };
+  createStream(debateId: string, argumentId: string, res: Response): void {
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    });
+    res.write(": connected\n\n");
+    // Heartbeat every 15s, cleanup on res.on('close', ...)
+  }
+
+  emit(debateId: string, argumentId: string, event: SSEEvent): void {
+    const validated = SSEEventSchema.safeParse(event);
+    if (!validated.success) return;
+    const data = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+    // Write to all active streams for this pipeline run
+  }
+}
+
+// Create emit function bound to a specific pipeline run
+export function createEmitter(debateId: string, argumentId: string): (event: SSEEvent) => void {
+  return (event) => pipelineStreamManager.emit(debateId, argumentId, event);
 }
 ```
 
@@ -161,6 +170,13 @@ router.post("/api/acp/checkout_sessions/:id/complete", async (req, res) => {
 
 **DEPRECATED:** `@multiversx/sdk-network-providers` — use `ApiNetworkProvider`/`ProxyNetworkProvider` from `@multiversx/sdk-core` v15.3.1 directly.
 **DEAD:** Relayed Transactions v1/v2 — use v3 ONLY (two-field: `relayer` + `relayerSignature`).
+
+## Cross-Package Import Gotchas
+
+- Backend package.json MUST have `exports` field for frontend to import `AppRouter` type
+- `@types/node` must be explicit devDependency (not hoisted from root)
+- `tsconfig.json` must override `noEmit: false` for `tsc` build to emit files
+- Neo4j relationship types (`:HAS_PRO`, `:HAS_CON`) cannot be parameterized in Cypher — use template literals with enum-constrained values only
 
 ## Testing
 - Use Vitest with Neo4j test container

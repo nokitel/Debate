@@ -44,8 +44,8 @@ test.describe("Phase 1 Gate Test: Debate Creation Flow", () => {
     await expect(page.locator("text=Without regulation")).toBeVisible({ timeout: 10_000 });
 
     // 9. Verify the argument metadata
-    await expect(page.locator("text=Con")).toBeVisible();
-    await expect(page.locator("text=qwen2.5:latest")).toBeVisible();
+    await expect(page.getByText("Con", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("qwen2.5:latest")).toBeVisible();
 
     // 10. Reload page to verify persistence
     await page.reload();

@@ -18,15 +18,18 @@ globs: ["packages/frontend/**"]
 ## App Router Patterns
 
 ### Server Components (default)
-Pages and layouts are Server Components by default. Use for SSR/SSG:
+Pages and layouts are Server Components by default. Use for SSR/SSG.
 
+**IMPORTANT:** In Next.js 15, dynamic route `params` are `Promise` and must be awaited:
 ```typescript
-// app/debates/page.tsx — Server Component (SSR for SEO)
-import { trpc } from "@/lib/trpc-server";
+// app/debates/[id]/page.tsx — params are Promise in Next.js 15
+interface DebatePageProps {
+  params: Promise<{ id: string }>;
+}
 
-export default async function DebatesPage() {
-  const debates = await trpc.debate.list.query({ limit: 20 });
-  return <DebateList debates={debates} />;
+export default async function DebatePage({ params }: DebatePageProps) {
+  const { id } = await params;
+  return <DebateView debateId={id} />;
 }
 ```
 
@@ -53,35 +56,44 @@ export function GenerateButton({ parentId, debateId }: Props) {
 
 ## SSE Hook Pattern
 
+Backend uses named events (`event: stage-start\ndata: ...\n\n`), so use `addEventListener` per event type instead of `onmessage`:
+
 ```typescript
 // hooks/usePipelineSSE.ts
 "use client";
 import { useState, useEffect } from "react";
-import { SSEEvent, SSEEventSchema } from "@dialectical/shared";
+import type { SSEEvent } from "@dialectical/shared";
 
-export function usePipelineSSE(debateId: string, argumentId: string | null) {
+export function usePipelineSSE(options: { debateId: string; argumentId: string; enabled: boolean }) {
   const [events, setEvents] = useState<SSEEvent[]>([]);
-  const [isActive, setIsActive] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    if (!argumentId) return;
-    setIsActive(true);
-    const es = new EventSource(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/pipeline/${debateId}/${argumentId}/stream`
-    );
-    es.onmessage = (e) => {
-      const event = SSEEventSchema.parse(JSON.parse(e.data));
-      setEvents(prev => [...prev, event]);
-      if (event.type === "pipeline-complete" || event.type === "pipeline-error") {
-        setIsActive(false);
-        es.close();
-      }
-    };
-    es.onerror = () => { setIsActive(false); es.close(); };
-    return () => es.close();
-  }, [debateId, argumentId]);
+    if (!options.enabled) return;
+    const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/pipeline/${options.debateId}/${options.argumentId}/stream`;
+    const es = new EventSource(url);
 
-  return { events, isActive };
+    es.onopen = () => setIsConnected(true);
+
+    // Listen for each named event type individually
+    const types = ["stage-start", "stage-complete", "stage-failed",
+                   "candidate-generated", "pipeline-complete", "pipeline-error"];
+    for (const type of types) {
+      es.addEventListener(type, (e) => {
+        const data = JSON.parse((e as MessageEvent).data) as SSEEvent;
+        setEvents(prev => [...prev, data]);
+        if (type === "pipeline-complete" || type === "pipeline-error") {
+          es.close();
+          setIsConnected(false);
+        }
+      });
+    }
+
+    es.onerror = () => { setIsConnected(false); es.close(); };
+    return () => es.close();
+  }, [options.debateId, options.argumentId, options.enabled]);
+
+  return { events, isConnected };
 }
 ```
 
@@ -147,9 +159,10 @@ export const useDebateStore = create<DebateStore>((set, get) => ({
 ```
 
 ## Styling
-- Tailwind CSS v4 utility classes
+- Tailwind CSS v4 — use `@import "tailwindcss"` in globals.css (NOT the v3 `@tailwind` directives)
 - Color system: green-500 (PRO), red-500 (CON), blue-500 (THESIS), gray (neutral)
-- Dark mode: use `dark:` prefix, default to system preference
+- CSS custom properties for theme: `--color-pro`, `--color-con`, `--color-thesis`, etc.
+- Dark mode: `@media (prefers-color-scheme: dark)` on CSS variables
 - Animations: use `transition-all duration-200` for smooth interactions
 - Responsive: mobile-first, breakpoints at sm/md/lg
 
@@ -184,6 +197,20 @@ State management uses Zustand internally — compatible with our app-level Zusta
 - Wallet connection is a separate flow on `/profile/wallet` (link to existing account)
 - All auth state managed by Auth.js sessions — NEVER localStorage
 
+## tRPC Client Gotcha
+
+Exporting `createTRPCReact<AppRouter>()` causes TS2742 portability error. ALWAYS add explicit type:
+
+```typescript
+import { createTRPCReact, type CreateTRPCReact } from "@trpc/react-query";
+import type { AppRouter } from "@dialectical/backend";
+
+// SAFETY: Explicit type annotation avoids TS2742 portability error
+export const trpc: CreateTRPCReact<AppRouter, unknown> = createTRPCReact<AppRouter>();
+```
+
+The `httpBatchLink` also needs a cast: `httpBatchLink({ url }) as TRPCLink<AppRouter>`.
+
 ## Constraints
 - No `localStorage` for auth — Auth.js sessions only
 - All schemas from `@dialectical/shared`
@@ -191,3 +218,4 @@ State management uses Zustand internally — compatible with our app-level Zusta
 - Components max ~150 lines — extract sub-components
 - All client-side data fetching via tRPC hooks (no raw fetch)
 - Hosting target: dezbatere.ro (Hetzner CX33 Nuremberg)
+- Backend package MUST have `exports` field in package.json for `AppRouter` type import to work
