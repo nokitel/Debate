@@ -102,6 +102,45 @@ The actual installed versions differ from what some docs/skill files reference:
 
 **Rule:** When referencing versions in docs, use the ACTUAL installed versions from pnpm-lock.yaml, not aspirational semver ranges.
 
+---
+
+## Phase 2 (2026-02-08)
+
+### Module-Level Constants vs Test Env Stubs
+
+**Problem:** `vi.stubEnv("OLLAMA_BASE_URL", "http://mock-ollama:11434")` in `beforeEach` had no effect on the module under test.
+**Root cause:** `similarity.ts` reads the env var at module-level (`const OLLAMA_BASE_URL = process.env["OLLAMA_BASE_URL"] ?? "http://localhost:11434"`), which is evaluated at import time — before `beforeEach` runs.
+**Fix:** Either (a) use a function to read the env var lazily (`function getBaseUrl() { return process.env["OLLAMA_BASE_URL"] ?? ... }`), or (b) adjust the test to assert on something else (e.g., assert the URL contains `/api/embed` instead of the hostname).
+**Rule:** When a module reads `process.env` at the top level (module scope), `vi.stubEnv()` in `beforeEach` will NOT affect it. Either make the env read lazy (function/getter) or use `vi.mock()` to intercept the module.
+
+### Strategy Selection: Counting Underrepresented Strategies
+
+**Problem:** Test expected `["ethical", "analogical", "precedent", "empirical", "definitional"]` with 3 siblings [logical×2, empirical×1], but empirical (1 use) was NOT in the top 5.
+**Root cause:** There are 7 strategies total. With 3 used [logical×2, empirical×1], there are 5 strategies with 0 uses and 2 with >0 uses. Sorting by frequency ascending: the 5 zero-use strategies fill the top 5, pushing empirical (1 use) out.
+**Fix:** Changed test assertion to verify the 5 zero-use strategies are returned and empirical is NOT included.
+**Rule:** When testing "least-used first" sorting, count carefully — if there are more unused items than the return limit, used items won't appear at all.
+
+### Date.now() in Mocked Tests Returns Same Value
+
+**Problem:** `expect(result.totalDurationMs).toBeGreaterThan(0)` failed — duration was exactly 0.
+**Root cause:** In unit tests with mocked async stages that resolve instantly, `Date.now()` at start and end returns the same value.
+**Fix:** Changed assertion to `toBeGreaterThanOrEqual(0)`.
+**Rule:** When testing timing/duration in fast mocked tests, use `toBeGreaterThanOrEqual(0)` instead of `toBeGreaterThan(0)` since the elapsed time can genuinely be 0ms.
+
+### StageIndicator Type Union Must Match All Stage Statuses
+
+**Problem:** PipelineProgress used `"skipped"` status but StageIndicator only accepted `"pending" | "running" | "completed" | "failed"`.
+**Root cause:** The shared `StageResultSchema` includes `"skipped"` as a valid status, but the frontend component type wasn't updated.
+**Fix:** Added `"skipped"` to StageIndicator's union type and added yellow styling for it.
+**Rule:** When adding new statuses to shared schemas, audit all frontend components that consume them.
+
+### getModel() vs getNextModel() for Diverse Generation
+
+**Problem:** Diverse generation needs specific models from `LOCAL_MODEL_POOL[i]`, not the next model in rotation.
+**Root cause:** `getNextModel()` uses internal rotation state, which doesn't guarantee specific model selection for the i-th candidate.
+**Fix:** Use `getModel(modelName)` with explicit model name from `LOCAL_MODEL_POOL[i % pool.length]`.
+**Rule:** When you need to select a specific model by index (diverse generation), use `getModel(name)`. Use `getNextModel()` only when you want round-robin rotation without caring which model is selected.
+
 ### Phase 1 Actual File Structure
 
 The implemented structure differs slightly from what skill files described. Actual paths:
@@ -115,7 +154,7 @@ packages/backend/src/
 │   └── queries/
 │       ├── helpers.ts                # Neo4j record → plain JS mapper
 │       ├── debate.ts                 # createDebateWithThesis, listDebates, getDebateTree, etc.
-│       ├── argument.ts              # submitArgument, getArgumentContext, saveGeneratedArgument, etc.
+│       ├── argument.ts              # submitArgument, getArgumentContext, saveGeneratedArgument, saveRejectedArguments, setQualityGate, clearQualityGate, getSiblingEmbeddings (P2)
 │       └── user.ts                  # findUserByEmail, createUser, findOrCreateOAuthUser
 ├── trpc/
 │   ├── trpc.ts                      # initTRPC, publicProcedure, protectedProcedure
@@ -123,7 +162,7 @@ packages/backend/src/
 │   ├── router.ts                    # appRouter (debate + argument + auth)
 │   └── procedures/
 │       ├── debate.ts                # create, list, getById, getTree, archive
-│       ├── argument.ts             # submit, generate, getById, getRejected
+│       ├── argument.ts             # submit, generate, getById, getRejected (+saveRejected, qualityGate P2)
 │       └── auth.ts                 # register, login, getSession
 ├── auth/
 │   ├── config.ts                    # authenticateCredentials, authenticateOAuth
@@ -134,16 +173,34 @@ packages/backend/src/
 
 packages/ai-pipeline/src/
 ├── index.ts                         # Exports: runPipeline, checkOllamaHealth, types
-├── types.ts                         # DebateContext, PipelineInput, Emit
-├── orchestrator.ts                  # runPipeline: context → generation → result
+├── types.ts                         # DebateContext, PipelineInput, Emit (+siblingEmbeddings)
+├── orchestrator.ts                  # runPipeline: 6-stage pipeline (P2 rewrite)
+├── orchestrator.test.ts             # Full pipeline integration tests (P2)
 ├── models/
 │   ├── provider-registry.ts        # getModel, getNextModel (sequential rotation)
 │   └── model-config.ts            # Per-model timeouts and token limits
+├── embeddings/
+│   ├── similarity.ts               # generateEmbeddings, cosineSimilarity, normalize (P2)
+│   └── similarity.test.ts          # Embedding unit tests (P2)
+├── scoring/
+│   ├── elo.ts                      # expectedScore, updateElo, generatePairs (P2)
+│   └── elo.test.ts                 # Elo math unit tests (P2)
 ├── stages/
 │   ├── 01-context-extraction.ts    # Validates pre-fetched context from backend
-│   └── 03-single-model-generation.ts # generateObject with Ollama
+│   ├── 02-strategy-selection.ts    # selectStrategies — underrepresented first (P2)
+│   ├── 02-strategy-selection.test.ts
+│   ├── 03-single-model-generation.ts # generateObject with Ollama (Phase 1, kept)
+│   ├── 03-diverse-generation.ts    # 5 models × 5 strategies (P2)
+│   ├── 03-diverse-generation.test.ts
+│   ├── 04-tournament.ts            # Elo pairwise ranking, top 3 advance (P2)
+│   ├── 04-tournament.test.ts
+│   ├── 05-ensemble-consensus.ts    # 5-model median scoring, quality gate (P2)
+│   ├── 05-ensemble-consensus.test.ts
+│   ├── 06-semantic-dedup.ts        # Cosine similarity vs siblings + internal (P2)
+│   └── 06-semantic-dedup.test.ts
 └── prompts/
-    └── generation.ts               # buildGenerationPrompt
+    ├── generation.ts               # buildGenerationPrompt
+    └── evaluation.ts               # Tournament vote, consensus score, strategy prompts (P2)
 
 packages/frontend/
 ├── app/
@@ -160,18 +217,19 @@ packages/frontend/
 │   │   ├── trpc-provider.tsx       # QueryClient + tRPC provider wrapper
 │   │   └── auth-provider.tsx       # Auth wrapper (placeholder)
 │   ├── stores/
-│   │   ├── debate-store.ts         # Zustand: debate + arguments Map
+│   │   ├── debate-store.ts         # Zustand: debate + arguments Map + qualityGates Map (P2)
 │   │   └── ui-store.ts            # Zustand: modals, pipeline visibility
 │   ├── hooks/
 │   │   └── usePipelineSSE.ts      # EventSource hook for SSE
 │   └── components/
 │       ├── layout/Header.tsx
 │       ├── auth/{LoginModal,GoogleButton,AppleButton,EmailPasswordForm}.tsx
-│       ├── debate/{DebateCard,DebateList,CreateDebateForm,ArgumentCard,ArgumentCardList,DebateView,GenerateButton}.tsx
-│       └── pipeline/{PipelineProgress,StageIndicator}.tsx
+│       ├── debate/{DebateCard,DebateList,CreateDebateForm,ArgumentCard,ArgumentCardList,DebateView,GenerateButton,UserInputField,CollapsibleRejected}.tsx
+│       └── pipeline/{PipelineProgress,StageIndicator,TournamentBracket,ConsensusScores}.tsx
 ├── e2e/
 │   ├── debate-creation-flow.spec.ts # Phase 1 gate test
-│   └── fixtures/{auth-mocks,ai-mocks}.ts
+│   ├── multi-model-pipeline.spec.ts # Phase 2 gate test (P2)
+│   └── fixtures/{auth-mocks,ai-mocks,phase2-mocks}.ts
 ├── playwright.config.ts
 └── vitest.config.ts
 ```

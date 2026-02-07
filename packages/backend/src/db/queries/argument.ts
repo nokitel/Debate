@@ -94,20 +94,134 @@ export async function getArgumentById(
 
 /**
  * Get rejected arguments for a debate (transparent pipeline audit trail).
+ * Optionally filters by parent argument ID.
  */
 export async function getRejectedArguments(
   session: Session,
   debateId: string,
+  parentId?: string,
+  limit: number = 50,
 ): Promise<RejectedArgument[]> {
+  if (parentId) {
+    const result = await session.run(
+      `MATCH (parent:Argument {id: $parentId})-[:EXPLORED]->(r:RejectedArgument)
+       WHERE r.debateId = $debateId
+       RETURN r ORDER BY r.createdAt DESC LIMIT $limit`,
+      { parentId, debateId, limit },
+    );
+
+    return result.records
+      .map((record) => extractNode<RejectedArgument>(record, "r"))
+      .filter((r): r is RejectedArgument => r !== null);
+  }
+
   const result = await session.run(
     `MATCH (r:RejectedArgument {debateId: $debateId})
-     RETURN r ORDER BY r.createdAt DESC`,
-    { debateId },
+     RETURN r ORDER BY r.createdAt DESC LIMIT $limit`,
+    { debateId, limit },
   );
 
   return result.records
     .map((record) => extractNode<RejectedArgument>(record, "r"))
     .filter((r): r is RejectedArgument => r !== null);
+}
+
+interface SaveRejectedArgumentParams {
+  parentId: string;
+  debateId: string;
+  id: string;
+  text: string;
+  rejectionReason: string;
+  failedAtStage: "consensus" | "dedup" | "stress-test";
+  qualityScore: number;
+}
+
+/**
+ * Save rejected arguments linked to their parent via EXPLORED relationship.
+ * Does NOT increase debate.totalNodes.
+ */
+export async function saveRejectedArguments(
+  session: Session,
+  params: SaveRejectedArgumentParams[],
+): Promise<void> {
+  const now = new Date().toISOString();
+
+  for (const p of params) {
+    await session.run(
+      `MATCH (parent:Argument {id: $parentId, debateId: $debateId})
+       CREATE (r:RejectedArgument {
+         id: $id, text: $text, rejectionReason: $rejectionReason,
+         failedAtStage: $failedAtStage, qualityScore: $qualityScore,
+         debateId: $debateId, parentId: $parentId, createdAt: $now
+       })
+       CREATE (parent)-[:EXPLORED]->(r)`,
+      {
+        parentId: p.parentId,
+        debateId: p.debateId,
+        id: p.id,
+        text: p.text,
+        rejectionReason: p.rejectionReason,
+        failedAtStage: p.failedAtStage,
+        qualityScore: p.qualityScore,
+        now,
+      },
+    );
+  }
+}
+
+/**
+ * Set quality gate state on a parent argument node.
+ * Called after pipeline returns qualityGateTriggered: true.
+ */
+export async function setQualityGate(
+  session: Session,
+  argumentId: string,
+  debateId: string,
+  direction: "PRO" | "CON",
+): Promise<void> {
+  await session.run(
+    `MATCH (a:Argument {id: $argumentId, debateId: $debateId})
+     SET a.qualityGatePro = CASE WHEN $direction = 'PRO' THEN true ELSE a.qualityGatePro END,
+         a.qualityGateCon = CASE WHEN $direction = 'CON' THEN true ELSE a.qualityGateCon END`,
+    { argumentId, debateId, direction },
+  );
+}
+
+/**
+ * Clear quality gate state on a parent argument after user submits an argument.
+ */
+export async function clearQualityGate(
+  session: Session,
+  parentId: string,
+  argumentType: "PRO" | "CON",
+): Promise<void> {
+  await session.run(
+    `MATCH (parent:Argument {id: $parentId})
+     SET parent.qualityGatePro = CASE WHEN $type = 'PRO' THEN false ELSE parent.qualityGatePro END,
+         parent.qualityGateCon = CASE WHEN $type = 'CON' THEN false ELSE parent.qualityGateCon END`,
+    { parentId, type: argumentType },
+  );
+}
+
+/**
+ * Get sibling embeddings for semantic dedup.
+ * Returns the embedding vectors of existing siblings of a given argument.
+ */
+export async function getSiblingEmbeddings(
+  session: Session,
+  parentId: string,
+  debateId: string,
+): Promise<number[][]> {
+  const result = await session.run(
+    `MATCH (parent:Argument {id: $parentId})-[:HAS_PRO|HAS_CON]->(sibling:Argument)
+     WHERE sibling.debateId = $debateId AND sibling.embedding IS NOT NULL
+     RETURN sibling.embedding AS embedding`,
+    { parentId, debateId },
+  );
+
+  return result.records
+    .map((record) => record.get("embedding") as number[] | null)
+    .filter((e): e is number[] => e !== null);
 }
 
 /**

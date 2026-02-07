@@ -1,11 +1,18 @@
 import { create } from "zustand";
 import type { Debate, Argument } from "@dialectical/shared";
 
+interface QualityGateState {
+  pro: boolean;
+  con: boolean;
+}
+
 interface DebateState {
   /** Currently loaded debate. */
   debate: Debate | null;
   /** All arguments in the current debate, keyed by ID. */
   arguments: Map<string, Argument>;
+  /** Quality gate state per argument ID. */
+  qualityGates: Map<string, QualityGateState>;
   /** Whether the debate data is loading. */
   isLoading: boolean;
 
@@ -13,6 +20,7 @@ interface DebateState {
   setDebate: (debate: Debate) => void;
   setArguments: (args: Argument[]) => void;
   addArgument: (arg: Argument) => void;
+  setQualityGate: (argumentId: string, direction: "PRO" | "CON", active: boolean) => void;
   setLoading: (loading: boolean) => void;
   reset: () => void;
 }
@@ -20,14 +28,26 @@ interface DebateState {
 export const useDebateStore = create<DebateState>((set) => ({
   debate: null,
   arguments: new Map(),
+  qualityGates: new Map(),
   isLoading: false,
 
   setDebate: (debate) => set({ debate }),
 
-  setArguments: (args) =>
+  setArguments: (args) => {
+    const qualityGates = new Map<string, QualityGateState>();
+    for (const arg of args) {
+      const argRecord = arg as Record<string, unknown>;
+      const pro = argRecord["qualityGatePro"] === true;
+      const con = argRecord["qualityGateCon"] === true;
+      if (pro || con) {
+        qualityGates.set(arg.id, { pro, con });
+      }
+    }
     set({
       arguments: new Map(args.map((a) => [a.id, a])),
-    }),
+      qualityGates,
+    });
+  },
 
   addArgument: (arg) =>
     set((state) => {
@@ -36,12 +56,24 @@ export const useDebateStore = create<DebateState>((set) => ({
       return { arguments: next };
     }),
 
+  setQualityGate: (argumentId, direction, active) =>
+    set((state) => {
+      const next = new Map(state.qualityGates);
+      const current = next.get(argumentId) ?? { pro: false, con: false };
+      next.set(argumentId, {
+        ...current,
+        [direction === "PRO" ? "pro" : "con"]: active,
+      });
+      return { qualityGates: next };
+    }),
+
   setLoading: (isLoading) => set({ isLoading }),
 
   reset: () =>
     set({
       debate: null,
       arguments: new Map(),
+      qualityGates: new Map(),
       isLoading: false,
     }),
 }));

@@ -2,6 +2,7 @@
 
 import type { Argument } from "@dialectical/shared";
 import { GenerateButton } from "./GenerateButton";
+import { CollapsibleRejected } from "./CollapsibleRejected";
 
 interface ArgumentCardProps {
   argument: Argument;
@@ -40,6 +41,7 @@ export function ArgumentCard({ argument, children }: ArgumentCardProps): React.J
         <GenerateButton parentId={argument.id} debateId={argument.debateId} type="PRO" />
         <GenerateButton parentId={argument.id} debateId={argument.debateId} type="CON" />
       </div>
+      <CollapsibleRejected parentId={argument.id} debateId={argument.debateId} />
       {children && <div className="ml-4 mt-3 space-y-2">{children}</div>}
     </div>
   );

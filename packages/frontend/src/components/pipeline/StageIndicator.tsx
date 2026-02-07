@@ -1,6 +1,6 @@
 interface StageIndicatorProps {
   name: string;
-  status: "pending" | "running" | "completed" | "failed";
+  status: "pending" | "running" | "completed" | "failed" | "skipped";
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -8,6 +8,7 @@ const STATUS_STYLES: Record<string, string> = {
   running: "bg-blue-100 text-blue-700 animate-pulse",
   completed: "bg-green-100 text-green-700",
   failed: "bg-red-100 text-red-700",
+  skipped: "bg-yellow-100 text-yellow-700",
 };
 
 export function StageIndicator({ name, status }: StageIndicatorProps): React.JSX.Element {

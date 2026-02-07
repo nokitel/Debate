@@ -1017,7 +1017,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
 
 ### P2.AI — Full Free-Tier Pipeline
 
-- [ ] **P2.AI.01** — Stage 2: Strategy Selection
+- [x] **P2.AI.01** — Stage 2: Strategy Selection <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: ai-pipeline
   - DESCRIPTION: Analyze tree shape and select underrepresented reasoning strategies for diverse generation.
   - ACCEPTANCE:
@@ -1028,7 +1028,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/ai-pipeline && pnpm test -- --grep "strategy-selection"`
   - BLOCKED_BY: [P1.AI.02]
 
-- [ ] **P2.AI.02** — Stage 3 (full): Diverse generation with sequential model rotation
+- [x] **P2.AI.02** — Stage 3 (full): Diverse generation with sequential model rotation <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: ai-pipeline
   - DESCRIPTION: Generate 5 candidate arguments, each from a different model with a different reasoning strategy. Models are loaded ONE AT A TIME sequentially — diversity and quality over speed.
   - ACCEPTANCE:
@@ -1042,7 +1042,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/ai-pipeline && pnpm test -- --grep "diverse-generation"`
   - BLOCKED_BY: [P2.AI.01, P1.AI.01]
 
-- [ ] **P2.AI.03** — Stage 4: Tournament (Elo-style pairwise ranking)
+- [x] **P2.AI.03** — Stage 4: Tournament (Elo-style pairwise ranking) <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: ai-pipeline
   - DESCRIPTION: Pairwise head-to-head comparisons where each loaded model votes on each pair, producing an Elo ranking.
   - ACCEPTANCE:
@@ -1055,7 +1055,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/ai-pipeline && pnpm test -- --grep "tournament"`
   - BLOCKED_BY: [P2.AI.02]
 
-- [ ] **P2.AI.04** — Stage 5: Ensemble Consensus
+- [x] **P2.AI.04** — Stage 5: Ensemble Consensus <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: ai-pipeline
   - DESCRIPTION: All available models independently score surviving candidates on novelty, relevance, and logical strength.
   - ACCEPTANCE:
@@ -1067,7 +1067,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/ai-pipeline && pnpm test -- --grep "consensus"`
   - BLOCKED_BY: [P2.AI.03]
 
-- [ ] **P2.AI.05** — Embedding generation (local)
+- [x] **P2.AI.05** — Embedding generation (local) <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: ai-pipeline
   - DESCRIPTION: Generate embeddings for arguments using Ollama's embedding endpoint.
   - ACCEPTANCE:
@@ -1078,7 +1078,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/ai-pipeline && pnpm test -- --grep "embedding"`
   - BLOCKED_BY: [P1.AI.01]
 
-- [ ] **P2.AI.06** — Stage 6: Semantic Deduplication
+- [x] **P2.AI.06** — Stage 6: Semantic Deduplication <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: ai-pipeline
   - DESCRIPTION: Generate embeddings for surviving candidates, compare against existing sibling embeddings in Neo4j.
   - ACCEPTANCE:
@@ -1089,7 +1089,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/ai-pipeline && pnpm test -- --grep "dedup"`
   - BLOCKED_BY: [P2.AI.04, P2.AI.05]
 
-- [ ] **P2.AI.07** — Full free-tier orchestrator (Stages 1-6)
+- [x] **P2.AI.07** — Full free-tier orchestrator (Stages 1-6) <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: ai-pipeline
   - DESCRIPTION: Wire all 6 stages into the complete free-tier pipeline with SSE event emission.
   - ACCEPTANCE:
@@ -1104,7 +1104,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
 
 ### P2.BE — Backend Enhancements
 
-- [ ] **P2.BE.01** — Rejected argument storage
+- [x] **P2.BE.01** — Rejected argument storage <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: backend
   - DESCRIPTION: Store rejected candidates in Neo4j as RejectedArgument nodes linked to parent via EXPLORED relationship.
   - ACCEPTANCE:
@@ -1114,7 +1114,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/backend && pnpm test -- --grep "rejected"`
   - BLOCKED_BY: [P1.BE.04]
 
-- [ ] **P2.BE.02** — Quality gate state management
+- [x] **P2.BE.02** — Quality gate state management <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: backend
   - DESCRIPTION: Track quality gate state per node/direction and expose via API.
   - ACCEPTANCE:
@@ -1127,7 +1127,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
 
 ### P2.FE — Frontend Pipeline UI
 
-- [ ] **P2.FE.01** — Quality gate UI
+- [x] **P2.FE.01** — Quality gate UI <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: frontend
   - DESCRIPTION: When quality gate triggers, disable Generate button and show user input field.
   - ACCEPTANCE:
@@ -1138,7 +1138,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/frontend && pnpm test -- --grep "quality-gate"`
   - BLOCKED_BY: [P2.BE.02]
 
-- [ ] **P2.FE.02** — Collapsible "Explored Arguments" section
+- [x] **P2.FE.02** — Collapsible "Explored Arguments" section <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: frontend
   - DESCRIPTION: Show rejected candidates beneath each argument node as a collapsible section.
   - ACCEPTANCE:
@@ -1149,7 +1149,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/frontend && pnpm test -- --grep "explored-arguments"`
   - BLOCKED_BY: [P2.BE.01]
 
-- [ ] **P2.FE.03** — Enhanced PipelineProgress with multi-model detail
+- [x] **P2.FE.03** — Enhanced PipelineProgress with multi-model detail <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: frontend
   - DESCRIPTION: Show detailed pipeline info: which models are generating, tournament brackets, consensus scores.
   - ACCEPTANCE:
@@ -1162,7 +1162,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
 
 ### P2.E2E — Phase 2 Gate
 
-- [ ] **P2.E2E.01** — Multi-model pipeline E2E test
+- [x] **P2.E2E.01** — Multi-model pipeline E2E test <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: frontend
   - DESCRIPTION: E2E test verifying the full free-tier pipeline flow.
   - ACCEPTANCE:

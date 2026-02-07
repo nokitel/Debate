@@ -7,6 +7,7 @@ import {
   RejectedArgumentSchema,
   PipelineResultSchema,
 } from "@dialectical/shared";
+import type { CandidateArgument } from "@dialectical/shared";
 import type { PipelineInput, DebateContext } from "@dialectical/ai-pipeline";
 import { runPipeline } from "@dialectical/ai-pipeline";
 import { router, publicProcedure, protectedProcedure } from "../trpc.js";
@@ -17,6 +18,10 @@ import {
   getRejectedArguments,
   getArgumentContext,
   saveGeneratedArgument,
+  saveRejectedArguments,
+  setQualityGate,
+  clearQualityGate,
+  getSiblingEmbeddings,
 } from "../../db/queries/argument.js";
 import { getDebateById } from "../../db/queries/debate.js";
 import { createEmitter } from "../../sse/pipeline-stream.js";
@@ -25,21 +30,57 @@ import { createEmitter } from "../../sse/pipeline-stream.js";
 const activeGenerations = new Map<string, number>();
 const MAX_CONCURRENT_GENERATIONS = 5;
 
+/**
+ * Map a rejected CandidateArgument to a rejection reason string.
+ */
+function buildRejectionReason(candidate: CandidateArgument, failedAtStage: string): string {
+  if (failedAtStage === "tournament") {
+    return `Eliminated in tournament (Elo: ${candidate.eloScore.toFixed(0)})`;
+  }
+  if (failedAtStage === "consensus" && candidate.consensusScores) {
+    const { novelty, relevance, logicalStrength } = candidate.consensusScores;
+    return `Failed consensus (novelty: ${novelty.toFixed(2)}, relevance: ${relevance.toFixed(2)}, strength: ${logicalStrength.toFixed(2)})`;
+  }
+  if (failedAtStage === "dedup") {
+    return `Too similar to existing argument (similarity: ${(candidate.similarity ?? 0).toFixed(2)})`;
+  }
+  return `Rejected at ${failedAtStage}`;
+}
+
+/**
+ * Determine the pipeline stage where a candidate was rejected.
+ */
+function inferFailedStage(candidate: CandidateArgument): "consensus" | "dedup" | "stress-test" {
+  if (candidate.similarity !== undefined && candidate.similarity >= 0.85) {
+    return "dedup";
+  }
+  if (candidate.passedConsensus === false) {
+    return "consensus";
+  }
+  // Tournament-eliminated candidates failed consensus by default mapping
+  return "consensus";
+}
+
 export const argumentRouter = router({
-  /** Submit a user-written argument. Requires auth. */
+  /** Submit a user-written argument. Requires auth. Clears quality gate. */
   submit: protectedProcedure
     .input(SubmitUserArgumentInputSchema)
     .output(ArgumentSchema)
     .mutation(async ({ input, ctx }) => {
       const session = getSession();
       try {
-        return await submitArgument(session, {
+        const argument = await submitArgument(session, {
           parentId: input.parentId,
           type: input.type,
           debateId: input.debateId,
           text: input.text,
           userId: ctx.userId,
         });
+
+        // Clear quality gate on parent after user submits
+        await clearQualityGate(session, input.parentId, input.type);
+
+        return argument;
       } finally {
         await session.close();
       }
@@ -71,6 +112,13 @@ export const argumentRouter = router({
         // Fetch argument context (ancestor chain + siblings)
         const argumentContext = await getArgumentContext(session, input.debateId, input.parentId);
 
+        // Fetch sibling embeddings for semantic dedup
+        const siblingEmbeddings = await getSiblingEmbeddings(
+          session,
+          input.parentId,
+          input.debateId,
+        );
+
         // Build pipeline input
         const debateContext: DebateContext = {
           ...argumentContext,
@@ -83,6 +131,7 @@ export const argumentRouter = router({
           type: input.type,
           debateId: input.debateId,
           tier: "explorer",
+          siblingEmbeddings,
         };
 
         // Create SSE emitter for this run
@@ -108,11 +157,58 @@ export const argumentRouter = router({
             embedding: result.argument.embedding,
           });
 
-          // Return result with the persisted argument (has new ID from DB)
+          // Save rejected candidates
+          if (result.rejectedCandidates.length > 0) {
+            const rejectedParams = result.rejectedCandidates.map((candidate) => {
+              const failedAtStage = inferFailedStage(candidate);
+              return {
+                parentId: input.parentId,
+                debateId: input.debateId,
+                id: candidate.id,
+                text: candidate.text,
+                rejectionReason: buildRejectionReason(candidate, failedAtStage),
+                failedAtStage,
+                qualityScore: candidate.consensusScores
+                  ? (candidate.consensusScores.novelty +
+                      candidate.consensusScores.relevance +
+                      candidate.consensusScores.logicalStrength) /
+                    3
+                  : 0,
+              };
+            });
+            await saveRejectedArguments(session, rejectedParams);
+          }
+
           return {
             ...result,
             argument: savedArgument,
           };
+        }
+
+        // Quality gate triggered — set gate on parent and save rejected
+        if (result.qualityGateTriggered) {
+          await setQualityGate(session, input.parentId, input.debateId, input.type);
+
+          if (result.rejectedCandidates.length > 0) {
+            const rejectedParams = result.rejectedCandidates.map((candidate) => {
+              const failedAtStage = inferFailedStage(candidate);
+              return {
+                parentId: input.parentId,
+                debateId: input.debateId,
+                id: candidate.id,
+                text: candidate.text,
+                rejectionReason: buildRejectionReason(candidate, failedAtStage),
+                failedAtStage,
+                qualityScore: candidate.consensusScores
+                  ? (candidate.consensusScores.novelty +
+                      candidate.consensusScores.relevance +
+                      candidate.consensusScores.logicalStrength) /
+                    3
+                  : 0,
+              };
+            });
+            await saveRejectedArguments(session, rejectedParams);
+          }
         }
 
         return result;
@@ -140,14 +236,20 @@ export const argumentRouter = router({
       }
     }),
 
-  /** Get rejected arguments for a debate. Public (transparency). */
+  /** Get rejected arguments for a debate. Supports optional parentId filter. Public (transparency). */
   getRejected: publicProcedure
-    .input(z.object({ debateId: z.string().uuid() }))
+    .input(
+      z.object({
+        debateId: z.string().uuid(),
+        parentId: z.string().uuid().optional(),
+        limit: z.number().int().min(1).max(100).default(50),
+      }),
+    )
     .output(z.array(RejectedArgumentSchema))
     .query(async ({ input }) => {
       const session = getSession();
       try {
-        return await getRejectedArguments(session, input.debateId);
+        return await getRejectedArguments(session, input.debateId, input.parentId, input.limit);
       } finally {
         await session.close();
       }

@@ -17,6 +17,8 @@ export interface PipelineInput {
   debateId: string;
   tier: "explorer" | "thinker" | "scholar" | "institution";
   preferredStrategy?: ReasoningStrategy;
+  /** Pre-fetched embeddings of existing sibling arguments for semantic dedup. */
+  siblingEmbeddings?: number[][];
 }
 
 /** Emit function type for SSE events. */

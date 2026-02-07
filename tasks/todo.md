@@ -57,3 +57,38 @@
 - `pnpm turbo typecheck` — all packages pass (0 errors)
 - `next build` — 6 routes generated (4 static + 1 dynamic + 1 not-found)
 - Verified dependency versions documented in tasks/lessons.md
+
+---
+
+# Phase 2 — Multi-Model Pipeline
+
+## P2.AI — Full Free-Tier Pipeline
+- [x] P2.AI.01 — Stage 2: Strategy Selection <!-- COMPLETED: 2026-02-08 -->
+- [x] P2.AI.02 — Stage 3: Diverse generation (5 models × 5 strategies) <!-- COMPLETED: 2026-02-08 -->
+- [x] P2.AI.03 — Stage 4: Tournament (Elo pairwise ranking) <!-- COMPLETED: 2026-02-08 -->
+- [x] P2.AI.04 — Stage 5: Ensemble Consensus <!-- COMPLETED: 2026-02-08 -->
+- [x] P2.AI.05 — Embedding generation (nomic-embed-text via Ollama) <!-- COMPLETED: 2026-02-08 -->
+- [x] P2.AI.06 — Stage 6: Semantic Deduplication <!-- COMPLETED: 2026-02-08 -->
+- [x] P2.AI.07 — Full free-tier orchestrator (6-stage pipeline) <!-- COMPLETED: 2026-02-08 -->
+
+## P2.BE — Backend Enhancements
+- [x] P2.BE.01 — Rejected argument storage (RejectedArgument nodes + EXPLORED relationship) <!-- COMPLETED: 2026-02-08 -->
+- [x] P2.BE.02 — Quality gate state management (qualityGatePro/Con on Argument nodes) <!-- COMPLETED: 2026-02-08 -->
+
+## P2.FE — Frontend Pipeline UI
+- [x] P2.FE.01 — Quality gate UI (disabled button + UserInputField) <!-- COMPLETED: 2026-02-08 -->
+- [x] P2.FE.02 — Collapsible "Explored Arguments" section <!-- COMPLETED: 2026-02-08 -->
+- [x] P2.FE.03 — Enhanced PipelineProgress with multi-model detail <!-- COMPLETED: 2026-02-08 -->
+
+## P2.E2E — Phase 2 Gate
+- [x] P2.E2E.01 — Multi-model pipeline E2E test (3 test cases) <!-- COMPLETED: 2026-02-08 -->
+
+## Results
+- 22 new files + 8 modified files across 4 packages
+- AI pipeline: 16 new files (6 stages, embeddings, Elo scoring, evaluation prompts, orchestrator test)
+- Backend: 2 modified files (argument queries + tRPC procedures)
+- Frontend: 6 new files (TournamentBracket, ConsensusScores, UserInputField, CollapsibleRejected, E2E test + mocks) + 5 modified
+- 58 AI pipeline tests pass (8 test files)
+- All 3 packages typecheck clean
+- Frontend Next.js build succeeds (6 routes)
+- Phase 1 E2E gate test still passes

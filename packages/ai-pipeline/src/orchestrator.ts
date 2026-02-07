@@ -1,107 +1,225 @@
-import type { PipelineResult, StageResult, ReasoningStrategy } from "@dialectical/shared";
+import type {
+  PipelineResult,
+  StageResult,
+  StageName,
+  CandidateArgument,
+} from "@dialectical/shared";
+import { STAGE_TIMEOUTS } from "@dialectical/shared";
 import type { PipelineInput, Emit } from "./types.js";
 import { extractContext } from "./stages/01-context-extraction.js";
-import { generateSingleArgument } from "./stages/03-single-model-generation.js";
-
-const REASONING_STRATEGIES: ReasoningStrategy[] = [
-  "logical",
-  "empirical",
-  "ethical",
-  "analogical",
-  "precedent",
-  "consequentialist",
-  "definitional",
-];
+import { selectStrategies } from "./stages/02-strategy-selection.js";
+import { generateDiverse } from "./stages/03-diverse-generation.js";
+import { runTournament } from "./stages/04-tournament.js";
+import { runConsensus } from "./stages/05-ensemble-consensus.js";
+import { runDedup } from "./stages/06-semantic-dedup.js";
 
 /**
- * Pick a reasoning strategy.
- * Uses the preferred strategy if provided, otherwise picks randomly
- * (avoiding strategies already used by siblings).
+ * Wrap a stage function with timeout enforcement and StageResult tracking.
  */
-function pickStrategy(
-  preferredStrategy: ReasoningStrategy | undefined,
-  siblingStrategies: ReasoningStrategy[],
-): ReasoningStrategy {
-  if (preferredStrategy) return preferredStrategy;
+async function withStageTracking<T>(
+  stageName: StageName,
+  stages: StageResult[],
+  fn: () => Promise<T>,
+): Promise<T> {
+  const startTime = Date.now();
+  const timeout = STAGE_TIMEOUTS[stageName];
 
-  const unused = REASONING_STRATEGIES.filter((s) => !siblingStrategies.includes(s));
-  const pool = unused.length > 0 ? unused : REASONING_STRATEGIES;
-  const index = Math.floor(Math.random() * pool.length);
-  return pool[index] ?? "logical";
+  try {
+    const result = await Promise.race([
+      fn(),
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Stage ${stageName} timed out after ${timeout}ms`)),
+          timeout,
+        ),
+      ),
+    ]);
+
+    stages.push({
+      stage: stageName,
+      status: "completed",
+      durationMs: Date.now() - startTime,
+    });
+
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : `Stage ${stageName} failed`;
+    stages.push({
+      stage: stageName,
+      status: "failed",
+      durationMs: Date.now() - startTime,
+      error: message,
+    });
+    throw error;
+  }
 }
 
 /**
- * Run the Phase 1 minimal pipeline.
+ * Build the final Argument object from the winning candidate.
+ */
+function buildArgument(
+  winner: CandidateArgument,
+  input: PipelineInput,
+  depthLevel: number,
+): PipelineResult["argument"] {
+  const qualityScore = winner.consensusScores
+    ? (winner.consensusScores.novelty +
+        winner.consensusScores.relevance +
+        winner.consensusScores.logicalStrength) /
+      3
+    : 0.7;
+
+  return {
+    id: winner.id,
+    text: winner.text,
+    type: input.type,
+    source: "AI" as const,
+    generatedBy: winner.modelSource,
+    pipelineTier: input.tier,
+    qualityScore,
+    resilienceScore: null,
+    evidenceSources: winner.evidenceSources,
+    reasoningStrategy: winner.reasoningStrategy,
+    parentId: input.parentId,
+    debateId: input.debateId,
+    depthLevel,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Map rejected candidates to CandidateArgument with rejection context.
+ */
+function buildRejectedCandidates(
+  tournamentEliminated: CandidateArgument[],
+  consensusFailed: CandidateArgument[],
+  dedupDuplicates: CandidateArgument[],
+): CandidateArgument[] {
+  return [...tournamentEliminated, ...consensusFailed, ...dedupDuplicates];
+}
+
+/**
+ * Run the full free-tier pipeline (6 stages).
  *
- * Flow: Context Extraction → Single Model Generation → Result
+ * Flow:
+ * 1. Context Extraction — validate and summarize context
+ * 2. Strategy Selection — pick 5 underrepresented strategies
+ * 3. Diverse Generation — 5 models × 5 strategies → 5 candidates
+ * 4. Tournament — 10 Elo pairs → top 3 advance
+ * 5. Ensemble Consensus — 5-model scoring → quality gate
+ * 6. Semantic Dedup — embedding similarity → reject duplicates
  *
- * In Phase 1, this is a 2-stage pipeline:
- * 1. Validate and summarize the pre-fetched context
- * 2. Generate a single argument using one local model
- *
- * Quality gate is always false in Phase 1.
+ * Early termination: if consensus triggers quality gate, skip dedup.
+ * Winner selection: highest Elo among unique candidates. Tiebreak by logicalStrength.
  */
 export async function runPipeline(input: PipelineInput, emit: Emit): Promise<PipelineResult> {
   const startTime = Date.now();
   const stages: StageResult[] = [];
+  const allModelsUsed = new Set<string>();
 
   try {
     // Stage 1: Context Extraction
-    const contextStart = Date.now();
-    const { validatedContext, summary } = await extractContext(input.context, emit);
-    stages.push({
-      stage: "context-extraction",
-      status: "completed",
-      durationMs: Date.now() - contextStart,
-    });
-
-    // Pick reasoning strategy
-    const siblingStrategies = validatedContext.siblings.map((s) => s.reasoningStrategy);
-    const strategy = pickStrategy(input.preferredStrategy, siblingStrategies);
-
-    // Stage 3: Single Model Generation (stages 2-8 skipped in Phase 1)
-    const generationStart = Date.now();
-    const candidate = await generateSingleArgument(
-      {
-        context: validatedContext,
-        contextSummary: summary,
-        argumentType: input.type,
-        strategy,
-      },
-      emit,
+    const { validatedContext, summary } = await withStageTracking(
+      "context-extraction",
+      stages,
+      () => extractContext(input.context, emit),
     );
-    stages.push({
-      stage: "diverse-generation",
-      status: "completed",
-      durationMs: Date.now() - generationStart,
-    });
 
-    // Build the final argument from the candidate
-    const now = new Date().toISOString();
-    const argument = {
-      id: candidate.id,
-      text: candidate.text,
-      type: input.type as "PRO" | "CON",
-      source: "AI" as const,
-      generatedBy: candidate.modelSource,
-      pipelineTier: input.tier,
-      qualityScore: 0.7,
-      resilienceScore: null,
-      evidenceSources: candidate.evidenceSources,
-      reasoningStrategy: strategy,
-      parentId: input.parentId,
-      debateId: input.debateId,
-      depthLevel: validatedContext.target.depthLevel + 1,
-      createdAt: now,
-    };
+    const depthLevel = validatedContext.target.depthLevel + 1;
+
+    // Stage 2: Strategy Selection
+    const { strategies } = await withStageTracking("strategy-selection", stages, () =>
+      selectStrategies(validatedContext, input.type, emit),
+    );
+
+    // Stage 3: Diverse Generation (5 models × 5 strategies)
+    const { candidates, modelsUsed: genModels } = await withStageTracking(
+      "diverse-generation",
+      stages,
+      () => generateDiverse(validatedContext, summary, input.type, strategies, emit),
+    );
+    for (const m of genModels) allModelsUsed.add(m);
+
+    // Stage 4: Tournament
+    const { advanced, eliminated, votingModelsUsed } = await withStageTracking(
+      "tournament",
+      stages,
+      () => runTournament(candidates, validatedContext, input.type, emit),
+    );
+    for (const m of votingModelsUsed) allModelsUsed.add(m);
+
+    // Stage 5: Ensemble Consensus
+    const {
+      candidates: scoredCandidates,
+      qualityGateTriggered,
+      scoringModelsUsed,
+    } = await withStageTracking("ensemble-consensus", stages, () =>
+      runConsensus(advanced, validatedContext, input.type, emit),
+    );
+    for (const m of scoringModelsUsed) allModelsUsed.add(m);
+
+    // Early termination: quality gate triggered
+    if (qualityGateTriggered) {
+      stages.push({ stage: "semantic-dedup", status: "skipped", durationMs: 0 });
+
+      const result: PipelineResult = {
+        argument: null,
+        qualityGateTriggered: true,
+        rejectedCandidates: buildRejectedCandidates(eliminated, scoredCandidates, []),
+        stages,
+        totalDurationMs: Date.now() - startTime,
+        modelsUsed: [...allModelsUsed],
+        tier: input.tier,
+      };
+
+      emit({ type: "pipeline-complete", result });
+      return result;
+    }
+
+    // Stage 6: Semantic Dedup
+    const passingCandidates = scoredCandidates.filter((c) => c.passedConsensus);
+    const consensusFailed = scoredCandidates.filter((c) => !c.passedConsensus);
+    const siblingEmbeddings = input.siblingEmbeddings ?? [];
+
+    const { unique, duplicates } = await withStageTracking("semantic-dedup", stages, () =>
+      runDedup(passingCandidates, siblingEmbeddings, emit),
+    );
+
+    // Select winner: highest Elo, tiebreak by logicalStrength
+    const winner = unique.sort((a, b) => {
+      if (b.eloScore !== a.eloScore) return b.eloScore - a.eloScore;
+      const strengthA = a.consensusScores?.logicalStrength ?? 0;
+      const strengthB = b.consensusScores?.logicalStrength ?? 0;
+      return strengthB - strengthA;
+    })[0];
+
+    const allRejected = buildRejectedCandidates(eliminated, consensusFailed, duplicates);
+
+    if (!winner) {
+      // All candidates were deduped
+      const result: PipelineResult = {
+        argument: null,
+        qualityGateTriggered: true,
+        rejectedCandidates: allRejected,
+        stages,
+        totalDurationMs: Date.now() - startTime,
+        modelsUsed: [...allModelsUsed],
+        tier: input.tier,
+      };
+
+      emit({ type: "pipeline-complete", result });
+      return result;
+    }
+
+    const argument = buildArgument(winner, input, depthLevel);
 
     const result: PipelineResult = {
       argument,
       qualityGateTriggered: false,
-      rejectedCandidates: [],
+      rejectedCandidates: allRejected,
       stages,
       totalDurationMs: Date.now() - startTime,
-      modelsUsed: [candidate.modelSource],
+      modelsUsed: [...allModelsUsed],
       tier: input.tier,
     };
 
@@ -118,7 +236,7 @@ export async function runPipeline(input: PipelineInput, emit: Emit): Promise<Pip
       rejectedCandidates: [],
       stages,
       totalDurationMs: Date.now() - startTime,
-      modelsUsed: [],
+      modelsUsed: [...allModelsUsed],
       tier: input.tier,
     };
   }
