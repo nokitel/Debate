@@ -1,0 +1,6 @@
+{
+  "name": "@dialectical/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MultiversX Rust smart contracts for Dialectical Engine"
+}

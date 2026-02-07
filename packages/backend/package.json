@@ -1,0 +1,27 @@
+{
+  "name": "@dialectical/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@dialectical/shared": "workspace:*",
+    "@trpc/server": "^11.0.0",
+    "express": "^5.0.0",
+    "neo4j-driver": "^5.27.0",
+    "next-auth": "^5.0.0-beta.25",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

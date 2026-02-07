@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(pnpm *)",
+      "Bash(npm run *)",
+      "Bash(npx turbo *)",
+      "Bash(cargo test *)",
+      "Bash(cargo build *)",
+      "Bash(sc-meta *)",
+      "Bash(docker compose *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(wc *)",
+      "Read(*)",
+      "Write(packages/backend/src/**)",
+      "Write(packages/ai-pipeline/src/**)",
+      "Write(packages/frontend/**)",
+      "Write(packages/contracts/**)",
+      "Write(e2e/**)"
+    ],
+    "deny": [
+      "Write(packages/shared/src/**)",
+      "Write(.env)",
+      "Write(.env.production)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command // empty' | { read cmd; if echo \"$cmd\" | grep -qE '(mxpy .* mainnet|mxpy .* testnet)'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Blocked: devnet only until human approval\"}}'; else exit 0; fi; }"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read fp; if echo \"$fp\" | grep -qE '\\.ts$|\\.tsx$'; then npx prettier --write \"$fp\" 2>/dev/null; fi; exit 0; }",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
