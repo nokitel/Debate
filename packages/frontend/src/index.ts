@@ -1,2 +1,2 @@
 // @dialectical/frontend — Next.js App Router
-// TODO(P1.FE.01): Implement app layout and routing
+// All exports are via the app/ directory (Next.js pages) and src/ components
