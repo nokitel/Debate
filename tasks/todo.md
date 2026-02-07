@@ -124,3 +124,25 @@
 - All 4 packages build clean
 - Frontend Next.js build succeeds (7 routes: 5 static + 1 dynamic + 1 not-found; `/pricing` added as static)
 - New env vars: `BRAVE_SEARCH_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`
+
+---
+
+# Phase 4 — Tree Visualization
+
+## P4.FE — React Flow Tree View
+- [x] P4.FE.01 — React Flow integration & custom ArgumentNode <!-- COMPLETED: 2026-02-08 -->
+- [x] P4.FE.02 — ViewToggle: Tree ↔ Card List <!-- COMPLETED: 2026-02-08 -->
+- [x] P4.FE.03 — Tree performance optimization <!-- COMPLETED: 2026-02-08 -->
+
+## P4.E2E — Phase 4 Gate
+- [x] P4.E2E.01 — Tree visualization E2E test (5 test cases) <!-- COMPLETED: 2026-02-08 -->
+
+## Results
+- 8 new files + 3 modified files (all frontend)
+- New: dagre-layout.ts, dagre-layout.test.ts (7 tests), dagre-layout-performance.test.ts (3 tests), ArgumentNode.tsx, ArgumentTreeGraph.tsx, ViewToggle.tsx, phase4-mocks.ts, tree-view.spec.ts (5 E2E tests)
+- Modified: ui-store.ts (+viewMode, +persist), DebateView.tsx (+ViewToggle, +conditional render), package.json (+dagre, +@types/dagre, +jsdom)
+- 10 unit tests pass (2 test files)
+- 500-node dagre layout completes well under 2 seconds
+- All packages typecheck clean
+- Frontend Next.js build succeeds (7 routes, same as Phase 3)
+- New dependencies: dagre (hierarchical graph layout), @types/dagre, jsdom (vitest DOM environment)

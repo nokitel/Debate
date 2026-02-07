@@ -363,3 +363,89 @@ packages/frontend/
     ├── cloud-pipeline.spec.ts     # NEW: Phase 3 gate test (3 tests)
     └── fixtures/phase3-mocks.ts   # NEW: Scholar + Explorer pipeline mocks
 ```
+
+---
+
+## Phase 4 (2026-02-08)
+
+### Vitest Uses `-t` Not `--grep` for Test Filtering
+
+**Problem:** `pnpm test -- --grep "argument-node"` fails with `CACError: Unknown option --grep`.
+**Root cause:** Vitest uses `-t` (or `--testNamePattern`) for filtering tests by name, not `--grep` (which is a Mocha/Jest convention).
+**Fix:** Use `npx vitest run -t "argument-node"` instead.
+**Rule:** For Vitest test filtering: `-t "pattern"` for test name matching. Use file path patterns as positional args for file-level filtering. Plan.md VERIFY commands referencing `--grep` should use `-t` instead.
+
+### jsdom Must Be Explicitly Installed for Vitest
+
+**Problem:** `vitest run` fails with `Cannot find package 'jsdom'` even though `vitest.config.ts` sets `environment: "jsdom"`.
+**Root cause:** Vitest doesn't bundle jsdom — it's a peer dependency that must be explicitly installed.
+**Fix:** `pnpm --filter @dialectical/frontend add -D jsdom`
+**Rule:** When vitest config uses `environment: "jsdom"`, jsdom must be a devDependency. This was missing from the original package setup.
+
+### ESLint `no-non-null-assertion` in Next.js Build
+
+**Problem:** `next build` fails lint when test files use `!` (non-null assertion) e.g. `args[parentIdx]!.depthLevel`.
+**Root cause:** The project ESLint config has `@typescript-eslint/no-non-null-assertion: error`. Next.js build runs lint on all `src/**` files including tests.
+**Fix:** Replace `!` assertions with explicit null checks:
+```typescript
+// Instead of: const parent = args[parentIdx]!;
+const parent = args[parentIdx];
+if (!parent) throw new Error(`Parent at index ${parentIdx} not found`);
+```
+For test helpers, use a `findNode()` function that throws on not-found instead of `nodes.find()!`.
+**Rule:** Never use `!` non-null assertions anywhere in this codebase — use explicit null checks or helper functions that throw. This applies to test files too since ESLint checks them.
+
+### Zustand v5 `persist` Middleware Requires Double Function Call
+
+**Problem:** TypeScript error when using `create<State>(persist(...))` with Zustand v5.
+**Root cause:** Zustand v5 uses curried `create` for middleware: `create<T>()(middleware(...))` — note the extra `()`.
+**Fix:**
+```typescript
+export const useUIStore = create<UIState>()(
+  persist(
+    (set) => ({ ... }),
+    { name: "dialectical-ui", partialize: (state) => ({ viewMode: state.viewMode }) },
+  ),
+);
+```
+**Rule:** Zustand v5 middleware pattern: `create<T>()(persist(...))` — the double-invoke `()()` is required for TypeScript inference.
+
+### React Flow `NodeProps` Data Typing
+
+**Problem:** React Flow v12 `NodeProps` doesn't expose a clean generic for custom data — `NodeProps<ArgumentNodeData>` doesn't constrain `data`.
+**Root cause:** `@xyflow/react` v12 uses a different generics approach than v11. The `data` property on `NodeProps` is loosely typed.
+**Fix:** Cast `data` inside the component:
+```typescript
+function ArgumentNodeInner({ data }: NodeProps): React.JSX.Element {
+  const { argument, expanded, childCount, hiddenCount } = data as ArgumentNodeData;
+```
+**Rule:** For React Flow v12 custom nodes, cast `data` to your custom type inside the component body. The type safety comes from the `nodeTypes` registration ensuring only matching data flows in.
+
+### dagre Layout Requires Center-Point Offset
+
+**Problem:** dagre positions nodes by center point, but React Flow uses top-left corner positioning.
+**Root cause:** dagre's `g.node(id)` returns `{ x, y }` as the center of the node rectangle. React Flow's `position` represents the top-left corner.
+**Fix:** Offset position: `x: nodeWithPosition.x - NODE_WIDTH / 2, y: nodeWithPosition.y - NODE_HEIGHT / 2`
+**Rule:** When converting dagre layout to React Flow nodes, always subtract half the width/height from dagre's center-point coordinates.
+
+### Phase 4 File Structure Additions
+
+```
+packages/frontend/
+├── src/
+│   ├── lib/
+│   │   ├── dagre-layout.ts                # NEW: layoutArgumentTree(), getVisibleArguments(), AUTO_COLLAPSE_DEPTH
+│   │   ├── dagre-layout.test.ts           # NEW (7 tests)
+│   │   └── dagre-layout-performance.test.ts # NEW (3 tests, 500-node stress)
+│   ├── stores/
+│   │   └── ui-store.ts                    # MODIFIED: +viewMode, +setViewMode, +persist middleware
+│   └── components/debate/
+│       ├── ArgumentNode.tsx               # NEW: React.memo custom node, type coloring, expand/collapse
+│       ├── ArgumentTreeGraph.tsx          # NEW: ReactFlow wrapper, dagre layout, MiniMap, Controls, auto-collapse
+│       ├── ViewToggle.tsx                 # NEW: Cards/Tree segmented toggle with URL sync
+│       └── DebateView.tsx                 # MODIFIED: +ViewToggle, +conditional tree/card render, +URL ?view= sync
+├── e2e/
+│   ├── tree-view.spec.ts                 # NEW: Phase 4 gate test (5 tests)
+│   └── fixtures/phase4-mocks.ts          # NEW: 15-argument branching tree mock
+└── package.json                           # MODIFIED: +dagre, +@types/dagre, +jsdom
+```

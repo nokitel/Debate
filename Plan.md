@@ -1298,7 +1298,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
 > **Goal**: Interactive tree graph view using React Flow with auto-layout, alongside the card list view.
 > **Parallelism**: Primarily `frontend` work. `backend` adds tree layout data endpoint.
 
-- [ ] **P4.FE.01** — React Flow integration & custom ArgumentNode
+- [x] **P4.FE.01** — React Flow integration & custom ArgumentNode <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: frontend
   - DESCRIPTION: Build the interactive tree graph view with custom React Flow nodes.
   - ACCEPTANCE:
@@ -1310,7 +1310,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/frontend && pnpm test -- --grep "argument-node"`
   - BLOCKED_BY: [P1.FE.04]
 
-- [ ] **P4.FE.02** — ViewToggle: Tree ↔ Card List
+- [x] **P4.FE.02** — ViewToggle: Tree ↔ Card List <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: frontend
   - DESCRIPTION: Toggle between tree graph and card list views, maintaining state across switches.
   - ACCEPTANCE:
@@ -1321,7 +1321,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/frontend && pnpm test -- --grep "view-toggle"`
   - BLOCKED_BY: [P4.FE.01]
 
-- [ ] **P4.FE.03** — Tree performance optimization
+- [x] **P4.FE.03** — Tree performance optimization <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: frontend
   - DESCRIPTION: Ensure tree renders smoothly with 500+ nodes.
   - ACCEPTANCE:
@@ -1335,7 +1335,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
 
 ### P4.E2E — Phase 4 Gate
 
-- [ ] **P4.E2E.01** — Tree visualization E2E test
+- [x] **P4.E2E.01** — Tree visualization E2E test <!-- COMPLETED: 2026-02-08 -->
   - DESCRIPTION: Test creates debate with 10+ arguments, toggles tree view, verifies nodes rendered, clicks to expand.
   - VERIFY: `pnpm turbo test:e2e -- --grep "tree-view"`
   - BLOCKED_BY: [P4.FE.02, P4.FE.03]
