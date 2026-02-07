@@ -3,6 +3,7 @@
 import type { Argument } from "@dialectical/shared";
 import { GenerateButton } from "./GenerateButton";
 import { CollapsibleRejected } from "./CollapsibleRejected";
+import { SourceCitation } from "./SourceCitation";
 
 interface ArgumentCardProps {
   argument: Argument;
@@ -21,6 +22,16 @@ const TYPE_LABELS: Record<string, string> = {
   CON: "Con",
 };
 
+/**
+ * Get the CSS color class for a resilience score badge.
+ */
+function getResilienceColor(score: number): string {
+  if (score >= 0.7) return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+  if (score >= 0.4)
+    return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+  return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+}
+
 export function ArgumentCard({ argument, children }: ArgumentCardProps): React.JSX.Element {
   const colorClass = TYPE_COLORS[argument.type] ?? "";
   const label = TYPE_LABELS[argument.type] ?? argument.type;
@@ -35,8 +46,17 @@ export function ArgumentCard({ argument, children }: ArgumentCardProps): React.J
         <span className="text-xs text-[var(--color-text-secondary)]">
           {argument.reasoningStrategy}
         </span>
+        {argument.resilienceScore !== null && argument.resilienceScore !== undefined && (
+          <span
+            className={`rounded px-1.5 py-0.5 text-xs font-medium ${getResilienceColor(argument.resilienceScore)}`}
+            data-testid="resilience-score"
+          >
+            Resilience: {Math.round(argument.resilienceScore * 100)}%
+          </span>
+        )}
       </div>
       <p className="text-sm">{argument.text}</p>
+      <SourceCitation argument={argument} />
       <div className="mt-2 flex gap-2">
         <GenerateButton parentId={argument.id} debateId={argument.debateId} type="PRO" />
         <GenerateButton parentId={argument.id} debateId={argument.debateId} type="CON" />

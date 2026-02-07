@@ -25,6 +25,19 @@ const MODEL_OVERRIDES: Record<string, Partial<ModelConfig>> = {
     timeoutMs: 45_000,
     maxTokens: 1000,
   },
+  // Cloud models — higher token limits, network-aware timeouts
+  "claude-sonnet-4-5-20250929": {
+    timeoutMs: 60_000,
+    maxTokens: 4096,
+  },
+  "claude-haiku-3.5": {
+    timeoutMs: 30_000,
+    maxTokens: 4096,
+  },
+  "gpt-4o": {
+    timeoutMs: 60_000,
+    maxTokens: 4096,
+  },
 };
 
 /**

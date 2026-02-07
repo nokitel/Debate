@@ -7,7 +7,7 @@ import { StageIndicator } from "./StageIndicator";
 import { TournamentBracket } from "./TournamentBracket";
 import { ConsensusScores } from "./ConsensusScores";
 
-/** All 6 explorer-tier stages in order. */
+/** All 9 pipeline stages in order. */
 const STAGE_NAMES = [
   { key: "context-extraction", label: "Context Extraction" },
   { key: "strategy-selection", label: "Strategy Selection" },
@@ -15,6 +15,9 @@ const STAGE_NAMES = [
   { key: "tournament", label: "Tournament" },
   { key: "ensemble-consensus", label: "Ensemble Consensus" },
   { key: "semantic-dedup", label: "Semantic Dedup" },
+  { key: "evidence-grounding", label: "Evidence Grounding" },
+  { key: "adversarial-stress-test", label: "Adversarial Stress-Test" },
+  { key: "final-refinement", label: "Final Refinement" },
 ] as const;
 
 type StageStatus = "pending" | "running" | "completed" | "failed" | "skipped";
@@ -76,7 +79,11 @@ export function PipelineProgress({ events = [] }: PipelineProgressProps): React.
 
   return (
     <div className="fixed bottom-4 right-4 z-40 w-72 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-3 shadow-lg">
-      <h3 className="mb-2 text-sm font-bold">AI Pipeline (6 stages)</h3>
+      <h3 className="mb-2 text-sm font-bold">
+        AI Pipeline (
+        {STAGE_NAMES.filter((s) => (stageStates.get(s.key) ?? "pending") !== "skipped").length}{" "}
+        active stages)
+      </h3>
       <div className="space-y-1">
         {STAGE_NAMES.map((stage) => {
           const status = stageStates.get(stage.key) ?? ("pending" as StageStatus);

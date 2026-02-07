@@ -1,7 +1,7 @@
 import type { Session } from "neo4j-driver";
 import { randomUUID } from "node:crypto";
-import type { User, AuthProvider } from "@dialectical/shared";
-import { extractNode } from "./helpers.js";
+import type { User, AuthProvider, PipelineTier } from "@dialectical/shared";
+import { extractNode, extractScalar } from "./helpers.js";
 
 interface CreateUserParams {
   email: string;
@@ -143,4 +143,46 @@ export async function findOrCreateOAuthUser(
   }
 
   return user;
+}
+
+/** Tier info returned from Neo4j for subscription enforcement. */
+export interface UserTierInfo {
+  subscriptionTier: PipelineTier;
+  argumentsUsedThisMonth: number;
+}
+
+/**
+ * Get a user's subscription tier and monthly usage count.
+ * Used by the tier enforcement middleware.
+ */
+export async function getUserTierInfo(
+  session: Session,
+  userId: string,
+): Promise<UserTierInfo | null> {
+  const result = await session.run(
+    `MATCH (u:User {id: $userId})
+     RETURN u.subscriptionTier AS tier, u.argumentsUsedThisMonth AS used`,
+    { userId },
+  );
+
+  const record = result.records[0];
+  if (!record) return null;
+
+  const tier = extractScalar<string>(record, "tier") as PipelineTier;
+  const used = extractScalar<number>(record, "used");
+
+  return { subscriptionTier: tier, argumentsUsedThisMonth: used };
+}
+
+/**
+ * Increment the monthly argument usage counter for a user.
+ * Called after a successful pipeline generation.
+ */
+export async function incrementArgumentCount(session: Session, userId: string): Promise<void> {
+  await session.run(
+    `MATCH (u:User {id: $userId})
+     SET u.argumentsUsedThisMonth = u.argumentsUsedThisMonth + 1,
+         u.updatedAt = $now`,
+    { userId, now: new Date().toISOString() },
+  );
 }

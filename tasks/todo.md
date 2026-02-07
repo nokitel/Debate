@@ -92,3 +92,35 @@
 - All 3 packages typecheck clean
 - Frontend Next.js build succeeds (6 routes)
 - Phase 1 E2E gate test still passes
+
+---
+
+# Phase 3 — Cloud Pipeline & Evidence Grounding
+
+## P3.AI — Cloud Pipeline Stages
+- [x] P3.AI.01 — Cloud model provider setup (Anthropic + OpenAI) <!-- COMPLETED: 2026-02-08 -->
+- [x] P3.AI.02 — Stage 7: Evidence Grounding (web search via Brave API) <!-- COMPLETED: 2026-02-08 -->
+- [x] P3.AI.03 — Stage 8: Adversarial Stress-Test (Claude Sonnet attacks) <!-- COMPLETED: 2026-02-08 -->
+- [x] P3.AI.04 — Stage 9: Final Refinement (cloud model polish) <!-- COMPLETED: 2026-02-08 -->
+- [x] P3.AI.05 — Full pipeline orchestrator (all 9 stages, tier-aware) <!-- COMPLETED: 2026-02-08 -->
+
+## P3.BE — Tier Enforcement
+- [x] P3.BE.01 — Subscription tier checking middleware <!-- COMPLETED: 2026-02-08 -->
+
+## P3.FE — Citation & Tier UI
+- [x] P3.FE.01 — Source citation display on argument cards <!-- COMPLETED: 2026-02-08 -->
+- [x] P3.FE.02 — Pricing page (`/pricing`) <!-- COMPLETED: 2026-02-08 -->
+
+## P3.E2E — Phase 3 Gate
+- [x] P3.E2E.01 — Cloud pipeline E2E test (3 test cases) <!-- COMPLETED: 2026-02-08 -->
+
+## Results
+- 16 new files + 7 modified files across 3 packages
+- AI pipeline: 11 new files (3 stages, Brave search, 3 prompts, provider-registry test, stage tests)
+- Backend: 4 modified files (context.ts, trpc.ts, argument.ts, user.ts)
+- Frontend: 5 new files (SourceCitation, TierCard, FeatureMatrix, pricing page, E2E test + mocks) + 2 modified (ArgumentCard, PipelineProgress)
+- 115 AI pipeline tests pass (13 test files, up from 58)
+- All 5 packages typecheck clean
+- All 4 packages build clean
+- Frontend Next.js build succeeds (7 routes: 5 static + 1 dynamic + 1 not-found; `/pricing` added as static)
+- New env vars: `BRAVE_SEARCH_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`

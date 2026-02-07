@@ -141,6 +141,14 @@ The actual installed versions differ from what some docs/skill files reference:
 **Fix:** Use `getModel(modelName)` with explicit model name from `LOCAL_MODEL_POOL[i % pool.length]`.
 **Rule:** When you need to select a specific model by index (diverse generation), use `getModel(name)`. Use `getNextModel()` only when you want round-robin rotation without caring which model is selected.
 
+### Actual Installed Cloud AI SDK Versions (Feb 2026)
+
+- `@ai-sdk/anthropic`: 2.0.59
+- `@ai-sdk/openai`: 2.0.89
+- `ai` (Vercel AI SDK): 4.3.19
+
+These are the versions in pnpm-lock.yaml. The AI SDK docs may reference "v4" or "v6" interchangeably — the npm package version is 4.x.
+
 ### Phase 1 Actual File Structure
 
 The implemented structure differs slightly from what skill files described. Actual paths:
@@ -232,4 +240,126 @@ packages/frontend/
 │   └── fixtures/{auth-mocks,ai-mocks,phase2-mocks}.ts
 ├── playwright.config.ts
 └── vitest.config.ts
+```
+
+---
+
+## Phase 3 (2026-02-08)
+
+### LanguageModelV1 vs LanguageModelV2 Type Mismatch
+
+**Problem:** `@ai-sdk/anthropic` v2.0.59 and `@ai-sdk/openai` v2.0.89 return `LanguageModelV2`, but `ai` v4.3.19 exports `LanguageModel` as an alias for `LanguageModelV1`. This causes `TS2741: Property 'defaultObjectGenerationMode' is missing`.
+**Root cause:** The provider SDKs moved to V2 of the language model protocol before the core `ai` package re-exported the V2 type as `LanguageModel`.
+**Fix:** Cast with `as unknown as LanguageModel`:
+```typescript
+const anthropic = createAnthropic({ apiKey });
+return anthropic(modelName) as unknown as LanguageModel;
+```
+This is safe because `generateText()` and `generateObject()` accept both V1 and V2 at runtime.
+**Rule:** When `@ai-sdk/*` provider SDKs return a type incompatible with the `LanguageModel` from `ai`, use `as unknown as LanguageModel`. Check if this is fixed when upgrading `ai` to v5+.
+
+### JSDoc Arrow Character Causes TypeScript Parse Error
+
+**Problem:** A JSDoc comment containing `claude-* → Anthropic, gpt-*/o1-*/o3-* → OpenAI` caused `TS1109: Expression expected` and `TS1161: Unterminated regular expression literal`.
+**Root cause:** TypeScript's parser interprets `*` followed by certain Unicode characters (like `→`) inside JSDoc as a regex literal boundary. The `*` in `gpt-*` is not escaped and triggers the parser.
+**Fix:** Replace `→` with plain ASCII "to" in JSDoc comments containing glob-like patterns with `*`.
+**Rule:** In JSDoc comments, avoid combining `*` wildcards with non-ASCII characters. Use plain ASCII alternatives (`->` or "to") instead of `→`.
+
+### fillSkippedStages Must Be Unconditional
+
+**Problem:** After quality gate triggered early termination at stage 5, the `stages` array only had 6 entries instead of 9 for scholar tier.
+**Root cause:** `fillSkippedStages(stages, enabledStages)` only filled stages NOT in the tier's `enabledStages` list. For scholar tier (all 9 stages enabled), stages 7-9 were enabled but unreached due to early exit — so they were never filled.
+**Fix:** Changed `fillSkippedStages()` to unconditionally fill ALL missing stages, regardless of tier config:
+```typescript
+function fillSkippedStages(stages: StageResult[]): void {
+  const existingStages = new Set(stages.map((s) => s.stage));
+  for (const name of allStageNames) {
+    if (!existingStages.has(name)) {
+      stages.push({ stage: name, status: "skipped", durationMs: 0 });
+    }
+  }
+}
+```
+**Rule:** When ensuring a fixed-length output array (e.g., 9 stages), fill ALL missing entries unconditionally. Don't condition on what *should* have run — condition only on what *actually* ran.
+
+### Cloud Model Roles in TIER_CONFIGS
+
+The `cloudModels` field in `TIER_CONFIGS` uses three role keys:
+- `evaluator` — used by Stage 7 (evidence grounding) for searching + evaluating
+- `stressTester` — used by Stage 8 (adversarial stress-test) for attacking arguments
+- `refiner` — used by Stage 9 (final refinement) for polishing text
+
+These roles map to `getCloudModelForTier(tier, role)`. The function returns `null` if the tier has no cloud models (e.g., explorer). Always null-check the result before using.
+
+### Brave Search API Integration Pattern
+
+**Pattern:** Brave Search API wrapper with graceful degradation:
+```typescript
+const BRAVE_API_URL = "https://api.search.brave.com/res/v1/web/search";
+// Header: X-Subscription-Token: BRAVE_SEARCH_API_KEY
+// Returns: { web: { results: [{ title, url, description }] } }
+```
+- Free tier: 2000 queries/month, no credit card required
+- API key env var: `BRAVE_SEARCH_API_KEY`
+- Graceful fallback: return `[]` if key missing or API unreachable
+- Used via Vercel AI SDK `tool()` pattern — model decides when/what to search
+
+### Cloud Stage Error Handling Pattern
+
+All three cloud stages (7, 8, 9) follow the same error handling pattern:
+1. Individual candidate failures are non-fatal (catch per-candidate, continue with empty/default)
+2. Entire stage failure is non-fatal (caught in orchestrator, stage marked "failed")
+3. Pipeline continues with whatever data it has (degraded result)
+4. Only `getCloudModelForTier()` returning `null` is fatal — throws immediately with descriptive error
+
+**Rule:** Cloud API calls should NEVER crash the pipeline. Wrap in try/catch at both the per-candidate and per-stage level.
+
+### Phase 3 File Structure Additions
+
+```
+packages/ai-pipeline/src/
+├── models/
+│   ├── provider-registry.ts        # +isCloudModel, +getCloudModel, +getCloudModelForTier, +getCloudModelNameForTier, +checkCloudHealth
+│   ├── provider-registry.test.ts   # NEW (24 tests)
+│   └── model-config.ts            # +cloud model configs (sonnet, haiku, gpt-4o)
+├── search/
+│   ├── brave.ts                    # NEW: Brave Search API wrapper
+│   └── brave.test.ts              # NEW (6 tests)
+├── stages/
+│   ├── 07-evidence-grounding.ts    # NEW: Web search + citation extraction
+│   ├── 07-evidence-grounding.test.ts # NEW (7 tests)
+│   ├── 08-adversarial-stress-test.ts # NEW: Claude Sonnet attacks
+│   ├── 08-adversarial-stress-test.test.ts # NEW (7 tests)
+│   ├── 09-final-refinement.ts      # NEW: Cloud model polish
+│   └── 09-final-refinement.test.ts # NEW (6 tests)
+├── prompts/
+│   ├── evidence.ts                 # NEW: Evidence grounding prompt
+│   ├── stress-test.ts             # NEW: Adversarial attack prompt
+│   └── refinement.ts             # NEW: Final refinement prompt
+└── orchestrator.ts                 # REWRITTEN: 9-stage tier-aware
+
+packages/backend/src/
+├── trpc/
+│   ├── context.ts                  # +TieredContext interface
+│   ├── trpc.ts                    # +enforceTier middleware, +tieredProcedure
+│   └── procedures/
+│       └── argument.ts            # tieredProcedure, ctx.subscriptionTier, +incrementArgumentCount, +stress-test rejection handling
+└── db/queries/
+    └── user.ts                    # +getUserTierInfo(), +incrementArgumentCount()
+
+packages/frontend/
+├── app/
+│   └── pricing/page.tsx           # NEW: SSR pricing page
+├── src/components/
+│   ├── debate/
+│   │   ├── ArgumentCard.tsx       # +SourceCitation, +resilience badge
+│   │   └── SourceCitation.tsx     # NEW: Collapsible citation links + upgrade CTA
+│   ├── pricing/
+│   │   ├── TierCard.tsx           # NEW: Individual tier card
+│   │   └── FeatureMatrix.tsx      # NEW: Feature comparison table
+│   └── pipeline/
+│       └── PipelineProgress.tsx   # 6→9 stages, dynamic count
+└── e2e/
+    ├── cloud-pipeline.spec.ts     # NEW: Phase 3 gate test (3 tests)
+    └── fixtures/phase3-mocks.ts   # NEW: Scholar + Explorer pipeline mocks
 ```

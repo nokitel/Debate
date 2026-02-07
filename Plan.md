@@ -1184,7 +1184,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
 
 ### P3.AI — Cloud Pipeline Stages
 
-- [ ] **P3.AI.01** — Cloud model provider setup (Anthropic + OpenAI)
+- [x] **P3.AI.01** — Cloud model provider setup (Anthropic + OpenAI) <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: ai-pipeline
   - DESCRIPTION: Configure Vercel AI SDK providers for Anthropic Claude and OpenAI GPT models.
   - ACCEPTANCE:
@@ -1196,7 +1196,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/ai-pipeline && pnpm test -- --grep "cloud-provider"`
   - BLOCKED_BY: [P1.AI.01]
 
-- [ ] **P3.AI.02** — Stage 7: Evidence Grounding (web search)
+- [x] **P3.AI.02** — Stage 7: Evidence Grounding (web search) <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: ai-pipeline
   - DESCRIPTION: Search the web for evidence supporting each candidate argument, attach citations.
   - ACCEPTANCE:
@@ -1208,7 +1208,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/ai-pipeline && pnpm test -- --grep "evidence-grounding"`
   - BLOCKED_BY: [P3.AI.01, P2.AI.07]
 
-- [ ] **P3.AI.03** — Stage 8: Adversarial Stress-Test
+- [x] **P3.AI.03** — Stage 8: Adversarial Stress-Test <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: ai-pipeline
   - DESCRIPTION: Strong model (Claude Sonnet) attempts to demolish each candidate. Survivors get a resilience score.
   - ACCEPTANCE:
@@ -1220,7 +1220,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/ai-pipeline && pnpm test -- --grep "stress-test"`
   - BLOCKED_BY: [P3.AI.01, P2.AI.07]
 
-- [ ] **P3.AI.04** — Stage 9: Final Refinement
+- [x] **P3.AI.04** — Stage 9: Final Refinement <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: ai-pipeline
   - DESCRIPTION: Cloud model refines the winning argument for clarity, self-containedness, and readability.
   - ACCEPTANCE:
@@ -1231,7 +1231,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/ai-pipeline && pnpm test -- --grep "refinement"`
   - BLOCKED_BY: [P3.AI.03]
 
-- [ ] **P3.AI.05** — Full pipeline orchestrator (all 9 stages, tier-aware)
+- [x] **P3.AI.05** — Full pipeline orchestrator (all 9 stages, tier-aware) <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: ai-pipeline
   - DESCRIPTION: Extend orchestrator to run Stages 7-9 for paid tiers, skip for free tier.
   - ACCEPTANCE:
@@ -1247,7 +1247,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
 
 ### P3.BE — Tier Enforcement
 
-- [ ] **P3.BE.01** — Subscription tier checking middleware
+- [x] **P3.BE.01** — Subscription tier checking middleware <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: backend
   - DESCRIPTION: tRPC middleware that reads user's subscription tier and enforces limits.
   - ACCEPTANCE:
@@ -1260,7 +1260,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
 
 ### P3.FE — Citation & Tier UI
 
-- [ ] **P3.FE.01** — Source citation display on argument cards
+- [x] **P3.FE.01** — Source citation display on argument cards <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: frontend
   - DESCRIPTION: Show evidence sources on paid-tier argument cards.
   - ACCEPTANCE:
@@ -1271,7 +1271,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/frontend && pnpm test -- --grep "citations"`
   - BLOCKED_BY: [P3.AI.02]
 
-- [ ] **P3.FE.02** — Pricing page (`/pricing`)
+- [x] **P3.FE.02** — Pricing page (`/pricing`) <!-- COMPLETED: 2026-02-08 -->
   - PACKAGE: frontend
   - DESCRIPTION: Subscription tier comparison page with feature matrix.
   - ACCEPTANCE:
@@ -1285,7 +1285,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
 
 ### P3.E2E — Phase 3 Gate
 
-- [ ] **P3.E2E.01** — Cloud pipeline E2E test
+- [x] **P3.E2E.01** — Cloud pipeline E2E test <!-- COMPLETED: 2026-02-08 -->
   - DESCRIPTION: Test generates paid-tier argument, verifies citations appear, stress-test score displayed.
   - VERIFY: `pnpm turbo test:e2e -- --grep "cloud-pipeline"`
   - BLOCKED_BY: [P3.AI.05, P3.FE.01]

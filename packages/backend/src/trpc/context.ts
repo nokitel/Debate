@@ -1,7 +1,15 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
+import type { PipelineTier } from "@dialectical/shared";
 
 export interface Context {
   userId: string | null;
+}
+
+/** Enriched context after tier middleware runs. */
+export interface TieredContext {
+  userId: string;
+  subscriptionTier: PipelineTier;
+  argumentsUsedThisMonth: number;
 }
 
 /**

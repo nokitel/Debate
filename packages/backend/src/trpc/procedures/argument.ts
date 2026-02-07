@@ -10,7 +10,7 @@ import {
 import type { CandidateArgument } from "@dialectical/shared";
 import type { PipelineInput, DebateContext } from "@dialectical/ai-pipeline";
 import { runPipeline } from "@dialectical/ai-pipeline";
-import { router, publicProcedure, protectedProcedure } from "../trpc.js";
+import { router, publicProcedure, protectedProcedure, tieredProcedure } from "../trpc.js";
 import { getSession } from "../../db/neo4j.js";
 import {
   submitArgument,
@@ -24,6 +24,7 @@ import {
   getSiblingEmbeddings,
 } from "../../db/queries/argument.js";
 import { getDebateById } from "../../db/queries/debate.js";
+import { incrementArgumentCount } from "../../db/queries/user.js";
 import { createEmitter } from "../../sse/pipeline-stream.js";
 
 /** In-memory counter for concurrent generations per user. */
@@ -44,6 +45,9 @@ function buildRejectionReason(candidate: CandidateArgument, failedAtStage: strin
   if (failedAtStage === "dedup") {
     return `Too similar to existing argument (similarity: ${(candidate.similarity ?? 0).toFixed(2)})`;
   }
+  if (failedAtStage === "stress-test") {
+    return `Failed adversarial stress-test (resilience: ${(candidate.resilienceScore ?? 0).toFixed(2)})`;
+  }
   return `Rejected at ${failedAtStage}`;
 }
 
@@ -51,6 +55,9 @@ function buildRejectionReason(candidate: CandidateArgument, failedAtStage: strin
  * Determine the pipeline stage where a candidate was rejected.
  */
 function inferFailedStage(candidate: CandidateArgument): "consensus" | "dedup" | "stress-test" {
+  if (candidate.resilienceScore !== undefined && candidate.resilienceScore < 0.3) {
+    return "stress-test";
+  }
   if (candidate.similarity !== undefined && candidate.similarity >= 0.85) {
     return "dedup";
   }
@@ -86,8 +93,8 @@ export const argumentRouter = router({
       }
     }),
 
-  /** Generate an AI argument. Requires auth. Triggers the pipeline. */
-  generate: protectedProcedure
+  /** Generate an AI argument. Requires auth + tier enforcement. Triggers the pipeline. */
+  generate: tieredProcedure
     .input(CreateArgumentInputSchema)
     .output(PipelineResultSchema)
     .mutation(async ({ input, ctx }) => {
@@ -130,7 +137,7 @@ export const argumentRouter = router({
           parentId: input.parentId,
           type: input.type,
           debateId: input.debateId,
-          tier: "explorer",
+          tier: ctx.subscriptionTier,
           siblingEmbeddings,
         };
 
@@ -156,6 +163,9 @@ export const argumentRouter = router({
             reasoningStrategy: result.argument.reasoningStrategy,
             embedding: result.argument.embedding,
           });
+
+          // Increment monthly usage counter
+          await incrementArgumentCount(session, ctx.userId);
 
           // Save rejected candidates
           if (result.rejectedCandidates.length > 0) {
