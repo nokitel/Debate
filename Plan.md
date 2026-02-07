@@ -4,7 +4,7 @@
 >
 > **How to use this plan**: Each task is a checkbox `- [ ]` that agents mark `- [x]` upon verified completion. Tasks are grouped by phase and package. Dependencies are listed as `BLOCKED_BY: [TASK_ID]`. Verification commands must pass before marking complete.
 >
-> **Current Status**: `NOT_STARTED`
+> **Current Status**: `PHASE_1_COMPLETE`
 > **Last Updated**: `2026-02-07`
 
 ---
@@ -738,7 +738,7 @@ export const LOCAL_MODEL_POOL = [
 
 ### P1.BE — Backend Foundation
 
-- [ ] **P1.BE.01** — Neo4j connection & schema initialization
+- [x] **P1.BE.01** — Neo4j connection & schema initialization <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: backend
   - DESCRIPTION: Create Neo4j driver singleton, connection pool, health check endpoint, and database constraints/indexes.
   - ACCEPTANCE:
@@ -764,7 +764,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   }};
 ```
 
-- [ ] **P1.BE.02** — tRPC server setup with Express adapter
+- [x] **P1.BE.02** — tRPC server setup with Express adapter <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: backend
   - DESCRIPTION: Set up Express server with tRPC adapter, CORS, request context with auth session, and SSE endpoint.
   - ACCEPTANCE:
@@ -776,7 +776,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/backend && pnpm dev & sleep 3 && curl -s localhost:4000/health | grep ok`
   - BLOCKED_BY: [P0.SHARED.06]
 
-- [ ] **P1.BE.03** — Debate CRUD procedures
+- [x] **P1.BE.03** — Debate CRUD procedures <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: backend
   - DESCRIPTION: Implement tRPC procedures for creating, listing, and retrieving debates with full tree structure.
   - ACCEPTANCE:
@@ -790,7 +790,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/backend && pnpm test -- --grep "debate"`
   - BLOCKED_BY: [P1.BE.01, P1.BE.02]
 
-- [ ] **P1.BE.04** — Argument CRUD procedures (without AI generation)
+- [x] **P1.BE.04** — Argument CRUD procedures (without AI generation) <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: backend
   - DESCRIPTION: Implement tRPC procedures for submitting user arguments and retrieving argument details.
   - ACCEPTANCE:
@@ -802,7 +802,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/backend && pnpm test -- --grep "argument"`
   - BLOCKED_BY: [P1.BE.03]
 
-- [ ] **P1.BE.05** — Auth.js / NextAuth integration (Google + Apple + Email/Password)
+- [x] **P1.BE.05** — Auth.js / NextAuth integration (Google + Apple + Email/Password) <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: backend
   - DESCRIPTION: Configure Auth.js v5 with Google OAuth, Apple OAuth, and email/password credentials, session management, and User node creation in Neo4j.
   - ACCEPTANCE:
@@ -818,7 +818,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/backend && pnpm test -- --grep "auth"`
   - BLOCKED_BY: [P1.BE.02]
 
-- [ ] **P1.BE.06** — SSE pipeline progress endpoint
+- [x] **P1.BE.06** — SSE pipeline progress endpoint <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: backend
   - DESCRIPTION: Implement Server-Sent Events endpoint that streams pipeline progress events to the frontend.
   - ACCEPTANCE:
@@ -832,7 +832,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
 
 ### P1.AI — Single-Model Generation
 
-- [ ] **P1.AI.01** — Vercel AI SDK + Ollama provider setup
+- [x] **P1.AI.01** — Vercel AI SDK + Ollama provider setup <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: ai-pipeline
   - DESCRIPTION: Configure Vercel AI SDK with Ollama provider, implement sequential model loading (one model at a time), test connection to local Ollama instance.
   - ACCEPTANCE:
@@ -848,7 +848,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - BLOCKED_BY: [P0.SHARED.06]
   - NOTE: Tests use mocked Ollama responses (no live Ollama required for CI)
 
-- [ ] **P1.AI.02** — Stage 1: Context Extraction
+- [x] **P1.AI.02** — Stage 1: Context Extraction <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: ai-pipeline
   - DESCRIPTION: Implement context extraction from Neo4j — ancestor chain traversal, sibling collection, embedding retrieval.
   - ACCEPTANCE:
@@ -859,7 +859,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/ai-pipeline && pnpm test -- --grep "context-extraction"`
   - BLOCKED_BY: [P1.AI.01, P1.BE.01]
 
-- [ ] **P1.AI.03** — Stage 3 (simplified): Single-model argument generation
+- [x] **P1.AI.03** — Stage 3 (simplified): Single-model argument generation <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: ai-pipeline
   - DESCRIPTION: Generate a single argument using one Ollama model with the debate context. This is the MVP-minimal generation — full multi-model comes in Phase 2.
   - ACCEPTANCE:
@@ -871,7 +871,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/ai-pipeline && pnpm test -- --grep "single-model"`
   - BLOCKED_BY: [P1.AI.02]
 
-- [ ] **P1.AI.04** — Simple pipeline orchestrator (Stages 1 + 3 only)
+- [x] **P1.AI.04** — Simple pipeline orchestrator (Stages 1 + 3 only) <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: ai-pipeline
   - DESCRIPTION: Wire context extraction → single-model generation into a minimal pipeline that returns one argument.
   - ACCEPTANCE:
@@ -883,7 +883,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/ai-pipeline && pnpm test -- --grep "orchestrator"`
   - BLOCKED_BY: [P1.AI.03]
 
-- [ ] **P1.AI.05** — Integrate pipeline with backend
+- [x] **P1.AI.05** — Integrate pipeline with backend <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: backend
   - DESCRIPTION: Create `argument.generate` tRPC procedure that invokes the ai-pipeline orchestrator and streams progress via SSE.
   - ACCEPTANCE:
@@ -896,7 +896,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
 
 ### P1.FE — Frontend Foundation
 
-- [ ] **P1.FE.01** — Next.js App Router setup
+- [x] **P1.FE.01** — Next.js App Router setup <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: frontend
   - DESCRIPTION: Initialize Next.js 15 with App Router, Tailwind CSS v4, root layout with providers.
   - ACCEPTANCE:
@@ -908,7 +908,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/frontend && pnpm build && pnpm start & sleep 3 && curl -s localhost:3000 | grep -q "html"`
   - BLOCKED_BY: [P0.SHARED.06]
 
-- [ ] **P1.FE.02** — tRPC client setup
+- [x] **P1.FE.02** — tRPC client setup <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: frontend
   - DESCRIPTION: Configure tRPC client to connect to backend, with type-safe hooks for all procedures.
   - ACCEPTANCE:
@@ -919,7 +919,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/frontend && pnpm typecheck`
   - BLOCKED_BY: [P1.FE.01, P1.BE.02]
 
-- [ ] **P1.FE.03** — Debate list page (`/debates`)
+- [x] **P1.FE.03** — Debate list page (`/debates`) <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: frontend
   - DESCRIPTION: Public page showing all debates with search, pagination, and metadata.
   - ACCEPTANCE:
@@ -931,7 +931,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/frontend && pnpm test -- --grep "debate-list"`
   - BLOCKED_BY: [P1.FE.02]
 
-- [ ] **P1.FE.04** — Debate view page with ArgumentCardList (`/debates/[id]`)
+- [x] **P1.FE.04** — Debate view page with ArgumentCardList (`/debates/[id]`) <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: frontend
   - DESCRIPTION: Display debate thesis and argument tree as a Kialo-style nested card list.
   - ACCEPTANCE:
@@ -943,7 +943,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/frontend && pnpm test -- --grep "argument-card"`
   - BLOCKED_BY: [P1.FE.02]
 
-- [ ] **P1.FE.05** — GenerateButton component
+- [x] **P1.FE.05** — GenerateButton component <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: frontend
   - DESCRIPTION: PRO/CON generation buttons on each argument card that trigger the pipeline.
   - ACCEPTANCE:
@@ -955,7 +955,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/frontend && pnpm test -- --grep "generate-button"`
   - BLOCKED_BY: [P1.FE.04]
 
-- [ ] **P1.FE.06** — PipelineProgress component (collapsible)
+- [x] **P1.FE.06** — PipelineProgress component (collapsible) <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: frontend
   - DESCRIPTION: Collapsible panel showing real-time pipeline progress via SSE.
   - ACCEPTANCE:
@@ -967,7 +967,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/frontend && pnpm test -- --grep "pipeline-progress"`
   - BLOCKED_BY: [P1.FE.05]
 
-- [ ] **P1.FE.07** — Create debate page (`/debates/new`)
+- [x] **P1.FE.07** — Create debate page (`/debates/new`) <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: frontend
   - DESCRIPTION: Form to create a new debate with title, description, and thesis statement.
   - ACCEPTANCE:
@@ -978,7 +978,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
   - VERIFY: `cd packages/frontend && pnpm test -- --grep "create-debate"`
   - BLOCKED_BY: [P1.FE.02]
 
-- [ ] **P1.FE.08** — Auth UI (Google + Apple + Email/Password login)
+- [x] **P1.FE.08** — Auth UI (Google + Apple + Email/Password login) <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: frontend
   - DESCRIPTION: Login/register UI supporting Google OAuth, Apple OAuth, and email/password, with session display in header.
   - ACCEPTANCE:
@@ -994,7 +994,7 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
 
 ### P1.E2E — End-to-End Validation
 
-- [ ] **P1.E2E.01** — Playwright setup & first E2E test
+- [x] **P1.E2E.01** — Playwright setup & first E2E test <!-- COMPLETED: 2026-02-07 -->
   - PACKAGE: frontend (tests live here)
   - DESCRIPTION: Configure Playwright with API mocking, write the Phase 1 gate test.
   - ACCEPTANCE:
