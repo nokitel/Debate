@@ -3,6 +3,7 @@ import type { PipelineTier } from "@dialectical/shared";
 
 export interface Context {
   userId: string | null;
+  walletAddress: string | null;
 }
 
 /** Enriched context after tier middleware runs. */
@@ -20,7 +21,9 @@ export interface TieredContext {
 export function createContext({ req }: CreateExpressContextOptions): Context {
   // userId is set by the auth middleware on the request
   const userId = ((req as unknown as Record<string, unknown>)["userId"] as string | null) ?? null;
-  return { userId };
+  const walletAddress =
+    ((req as unknown as Record<string, unknown>)["walletAddress"] as string | null) ?? null;
+  return { userId, walletAddress };
 }
 
 export type CreateContext = typeof createContext;

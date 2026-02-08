@@ -1,0 +1,112 @@
+{
+    "name": "access_control",
+    "comment": "Tests relayer guard and owner-only endpoint access control",
+    "steps": [
+        {
+            "step": "setState",
+            "accounts": {
+                "address:owner": {
+                    "nonce": "0",
+                    "balance": "100,000,000,000,000,000,000"
+                },
+                "address:relayer": {
+                    "nonce": "0",
+                    "balance": "1,000,000,000,000,000,000"
+                },
+                "address:attacker": {
+                    "nonce": "0",
+                    "balance": "1,000,000,000,000,000,000"
+                }
+            },
+            "newAddresses": [
+                {
+                    "creatorAddress": "address:owner",
+                    "creatorNonce": "0",
+                    "newAddress": "sc:dialectical-payments"
+                }
+            ]
+        },
+        {
+            "step": "scDeploy",
+            "id": "deploy",
+            "tx": {
+                "from": "address:owner",
+                "contractCode": "mxsc:output/dialectical-payments.mxsc.json",
+                "arguments": [],
+                "gasLimit": "50,000,000",
+                "gasPrice": "0"
+            },
+            "expect": {
+                "out": [],
+                "status": "0"
+            }
+        },
+        {
+            "step": "scCall",
+            "id": "set-relayer",
+            "tx": {
+                "from": "address:owner",
+                "to": "sc:dialectical-payments",
+                "function": "setRelayer",
+                "arguments": ["address:relayer"],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": {
+                "out": [],
+                "status": "0"
+            }
+        },
+        {
+            "step": "scCall",
+            "id": "attacker-tries-store",
+            "tx": {
+                "from": "address:attacker",
+                "to": "sc:dialectical-payments",
+                "function": "storeArgument",
+                "arguments": ["u64:1", "u64:1", "u8:0", "u32:5000", "str:Malicious argument"],
+                "gasLimit": "15,000,000",
+                "gasPrice": "0"
+            },
+            "expect": {
+                "out": [],
+                "status": "4",
+                "message": "str:Only relayer can store arguments"
+            }
+        },
+        {
+            "step": "scCall",
+            "id": "attacker-tries-set-relayer",
+            "tx": {
+                "from": "address:attacker",
+                "to": "sc:dialectical-payments",
+                "function": "setRelayer",
+                "arguments": ["address:attacker"],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": {
+                "out": [],
+                "status": "4",
+                "message": "str:Endpoint can only be called by owner"
+            }
+        },
+        {
+            "step": "scCall",
+            "id": "attacker-tries-set-tier-pricing",
+            "tx": {
+                "from": "address:attacker",
+                "to": "sc:dialectical-payments",
+                "function": "setTierPricing",
+                "arguments": ["u8:1", "biguint:0"],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": {
+                "out": [],
+                "status": "4",
+                "message": "str:Endpoint can only be called by owner"
+            }
+        }
+    ]
+}

@@ -1,4 +1,5 @@
-import type { TierConfig } from "@dialectical/shared";
+import type { TierConfig, PipelineTier } from "@dialectical/shared";
+import { SubscribeButton } from "./SubscribeButton";
 
 interface TierCardProps {
   name: string;
@@ -67,17 +68,7 @@ export function TierCard({ name, config, isCurrentTier }: TierCardProps): React.
         ))}
       </ul>
 
-      <button
-        type="button"
-        className={`mt-6 w-full rounded-lg px-4 py-2 text-sm font-medium ${
-          isCurrentTier
-            ? "cursor-default bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
-            : "bg-blue-600 text-white hover:bg-blue-700"
-        }`}
-        disabled={isCurrentTier}
-      >
-        {isCurrentTier ? "Current Plan" : "Subscribe"}
-      </button>
+      <SubscribeButton tier={name as PipelineTier} isCurrentTier={isCurrentTier} />
     </div>
   );
 }

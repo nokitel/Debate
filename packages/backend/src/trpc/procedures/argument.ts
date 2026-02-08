@@ -26,6 +26,7 @@ import {
 import { getDebateById } from "../../db/queries/debate.js";
 import { incrementArgumentCount } from "../../db/queries/user.js";
 import { createEmitter } from "../../sse/pipeline-stream.js";
+import { recordArgumentOnChain } from "../../blockchain/argument-store.js";
 
 /** In-memory counter for concurrent generations per user. */
 const activeGenerations = new Map<string, number>();
@@ -166,6 +167,21 @@ export const argumentRouter = router({
 
           // Increment monthly usage counter
           await incrementArgumentCount(session, ctx.userId);
+
+          // Fire-and-forget on-chain recording for paid tiers
+          if (ctx.subscriptionTier !== "explorer") {
+            recordArgumentOnChain({
+              argumentId: savedArgument.id,
+              debateId: input.debateId,
+              text: result.argument.text,
+              type: input.type,
+              qualityScore: result.argument.qualityScore,
+              authorAddress: null,
+              userId: ctx.userId,
+            }).catch((err: unknown) => {
+              console.error("[on-chain-recording] Failed:", err);
+            });
+          }
 
           // Save rejected candidates
           if (result.rejectedCandidates.length > 0) {

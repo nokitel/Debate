@@ -4,6 +4,12 @@ import { appRouter } from "./trpc/router.js";
 import { createContext } from "./trpc/context.js";
 import { verifyConnectivity } from "./db/neo4j.js";
 import { pipelineStreamManager } from "./sse/pipeline-stream.js";
+import { xmoneyWebhookRouter } from "./routes/xmoney-webhook.js";
+import { acpCheckoutRouter, acpWebhookHandler } from "./routes/acp-checkout.js";
+import { x402FacilitatorRouter } from "./routes/x402-facilitator.js";
+import { agentGenerateHandler } from "./routes/agent-generate.js";
+import { agentAuthMiddleware } from "./middleware/agent-auth.js";
+import { agentRateLimit } from "./middleware/agent-rate-limit.js";
 
 /**
  * Creates and configures the Express application.
@@ -27,6 +33,13 @@ export function createApp(): express.Express {
     next();
   });
 
+  // Webhook routes — MUST be mounted BEFORE express.json() because they need raw body
+  app.use("/api/webhooks/xmoney", express.raw({ type: "application/json" }));
+  app.use(xmoneyWebhookRouter);
+
+  // ACP webhook also needs raw body for HMAC
+  app.post("/api/acp/webhook", express.raw({ type: "application/json" }), acpWebhookHandler);
+
   // Health check
   app.get("/health", async (_req, res) => {
     const neo4jOk = await verifyConnectivity();
@@ -43,6 +56,21 @@ export function createApp(): express.Express {
     const { debateId, argumentId } = req.params as { debateId: string; argumentId: string };
     pipelineStreamManager.createStream(debateId, argumentId, res);
   });
+
+  // ACP checkout sessions (JSON body is fine here)
+  app.use("/api/acp", express.json(), acpCheckoutRouter);
+
+  // x402 facilitator endpoints
+  app.use("/api/x402", express.json(), x402FacilitatorRouter);
+
+  // AI agent argument generation endpoint
+  app.post(
+    "/api/agent/generate",
+    express.json(),
+    agentAuthMiddleware,
+    agentRateLimit,
+    agentGenerateHandler,
+  );
 
   // tRPC API
   app.use(

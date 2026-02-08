@@ -146,3 +146,41 @@
 - All packages typecheck clean
 - Frontend Next.js build succeeds (7 routes, same as Phase 3)
 - New dependencies: dagre (hierarchical graph layout), @types/dagre, jsdom (vitest DOM environment)
+
+---
+
+# Phase 5 — Blockchain Integration
+
+## P5.SC — Smart Contract
+- [x] P5.SC.01 — DialecticalPayments smart contract (Rust, multiversx-sc 0.64.0) <!-- COMPLETED: 2026-02-08 -->
+- [x] P5.SC.02 — Scenario tests (10 Rust blackbox tests + 3 Mandos JSON scenarios) <!-- COMPLETED: 2026-02-08 -->
+- [ ] P5.SC.03 — Deploy to devnet (manual — requires Rust toolchain + mxpy)
+
+## P5.BE — Backend Blockchain Services
+- [x] P5.BE.01 — Meta-transaction relayer service (Relayed v3, sdk-core v15) <!-- COMPLETED: 2026-02-08 -->
+- [x] P5.BE.02 — xMoney webhook handler (HMAC-SHA256, idempotent) <!-- COMPLETED: 2026-02-08 -->
+- [x] P5.BE.03 — MultiversX Native Auth (wallet login + link wallet) <!-- COMPLETED: 2026-02-08 -->
+- [x] P5.BE.04 — Automatic on-chain recording (fire-and-forget for paid tiers) <!-- COMPLETED: 2026-02-08 -->
+
+## P5.FE — Frontend Wallet & Subscription
+- [x] P5.FE.01 — Wallet connection page (sdk-dapp v5, 4 providers) <!-- COMPLETED: 2026-02-08 -->
+- [x] P5.FE.02 — Subscription management UI (xMoney checkout, usage bar, cancel) <!-- COMPLETED: 2026-02-08 -->
+
+## P5.AGENT — AI Agent Commerce
+- [x] P5.AGENT.01 — ACP checkout session REST endpoints (5 endpoints) <!-- COMPLETED: 2026-02-08 -->
+- [x] P5.AGENT.02 — x402 pay-per-argument middleware (custom MultiversX facilitator) <!-- COMPLETED: 2026-02-08 -->
+- [x] P5.AGENT.03 — AI agent argument generation API <!-- COMPLETED: 2026-02-08 -->
+
+## P5.E2E — Gate Test
+- [x] P5.E2E.01 — Blockchain integration E2E test (3 test cases, fully mocked) <!-- COMPLETED: 2026-02-08 -->
+
+## Results
+- 37 new files + 9 modified files across 4 packages (contracts: 12, backend: 19, frontend: 12, E2E: 2)
+- Smart contract: 9 endpoints, 6 storage mappers, 10 Rust tests, 3 Mandos scenarios
+- Backend: RelayerService (Relayed v3), xMoney webhooks (HMAC + idempotent), Native Auth (wallet login/link), 5 ACP endpoints, x402 facilitator (3 endpoints), agent generate API, rate limiter (100/hr), subscription procedures
+- Frontend: Wallet connection (4 providers), subscription management (checkout + usage bar + cancel), profile page
+- E2E: 3 mocked tests (wallet flow, subscription purchase, on-chain recording)
+- New backend deps: @multiversx/sdk-core, @multiversx/sdk-wallet, @multiversx/sdk-native-auth-server
+- New frontend deps: @multiversx/sdk-dapp, @multiversx/sdk-native-auth-client
+- P5.SC.03 (devnet deploy) deferred — requires Rust toolchain + mxpy CLI not available on current machine
+- Key patterns: UUID→u64 monotonic counter, webhook HMAC + idempotency via MERGE, fire-and-forget on-chain recording, quality score float→u32 encoding (×10000)

@@ -1,0 +1,7 @@
+{
+    "language": "rust",
+    "framework": "multiversx-sc",
+    "name": "dialectical-payments",
+    "version": "0.1.0",
+    "description": "Subscription and argument storage smart contract for the Dialectical Engine"
+}

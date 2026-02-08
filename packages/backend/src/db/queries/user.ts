@@ -186,3 +186,77 @@ export async function incrementArgumentCount(session: Session, userId: string): 
     { userId, now: new Date().toISOString() },
   );
 }
+
+/**
+ * Find or create a user by their MultiversX wallet address.
+ * Uses MERGE on walletAddress for idempotence.
+ */
+export async function findOrCreateWalletUser(
+  session: Session,
+  walletAddress: string,
+): Promise<User> {
+  const now = new Date().toISOString();
+  const userId = randomUUID();
+
+  const result = await session.run(
+    `MERGE (u:User {walletAddress: $walletAddress})
+     ON CREATE SET
+       u.id = $userId,
+       u.email = null,
+       u.displayName = $displayName,
+       u.avatarUrl = null,
+       u.authProviders = ['multiversx'],
+       u.subscriptionTier = 'explorer',
+       u.argumentsUsedThisMonth = 0,
+       u.createdAt = $now,
+       u.updatedAt = $now
+     ON MATCH SET
+       u.updatedAt = $now,
+       u.authProviders = CASE
+         WHEN NOT 'multiversx' IN u.authProviders
+         THEN u.authProviders + 'multiversx'
+         ELSE u.authProviders
+       END
+     RETURN u`,
+    {
+      userId,
+      walletAddress,
+      displayName: walletAddress.slice(0, 8) + "..." + walletAddress.slice(-4),
+      now,
+    },
+  );
+
+  const record = result.records[0];
+  if (!record) {
+    throw new Error("Failed to find or create wallet user");
+  }
+
+  const user = extractNode<User>(record, "u");
+  if (!user) {
+    throw new Error("Failed to extract wallet user from result");
+  }
+
+  return user;
+}
+
+/**
+ * Link a MultiversX wallet address to an existing user account.
+ * Adds 'multiversx' to authProviders if not already present.
+ */
+export async function linkWalletToUser(
+  session: Session,
+  userId: string,
+  walletAddress: string,
+): Promise<void> {
+  await session.run(
+    `MATCH (u:User {id: $userId})
+     SET u.walletAddress = $walletAddress,
+         u.authProviders = CASE
+           WHEN NOT 'multiversx' IN u.authProviders
+           THEN u.authProviders + 'multiversx'
+           ELSE u.authProviders
+         END,
+         u.updatedAt = $now`,
+    { userId, walletAddress, now: new Date().toISOString() },
+  );
+}

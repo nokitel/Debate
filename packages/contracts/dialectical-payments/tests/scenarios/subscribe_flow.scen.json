@@ -1,0 +1,103 @@
+{
+    "name": "subscribe_flow",
+    "comment": "Tests the full subscription lifecycle: set pricing, subscribe, check, cancel",
+    "steps": [
+        {
+            "step": "setState",
+            "accounts": {
+                "address:owner": {
+                    "nonce": "0",
+                    "balance": "100,000,000,000,000,000,000"
+                },
+                "address:user1": {
+                    "nonce": "0",
+                    "balance": "10,000,000,000,000,000"
+                }
+            },
+            "newAddresses": [
+                {
+                    "creatorAddress": "address:owner",
+                    "creatorNonce": "0",
+                    "newAddress": "sc:dialectical-payments"
+                }
+            ]
+        },
+        {
+            "step": "scDeploy",
+            "id": "deploy",
+            "tx": {
+                "from": "address:owner",
+                "contractCode": "mxsc:output/dialectical-payments.mxsc.json",
+                "arguments": [],
+                "gasLimit": "50,000,000",
+                "gasPrice": "0"
+            },
+            "expect": {
+                "out": [],
+                "status": "0"
+            }
+        },
+        {
+            "step": "scCall",
+            "id": "set-tier-1-pricing",
+            "tx": {
+                "from": "address:owner",
+                "to": "sc:dialectical-payments",
+                "function": "setTierPricing",
+                "arguments": ["u8:1", "biguint:4,000,000,000,000,000"],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": {
+                "out": [],
+                "status": "0"
+            }
+        },
+        {
+            "step": "scCall",
+            "id": "subscribe-tier-1",
+            "tx": {
+                "from": "address:user1",
+                "to": "sc:dialectical-payments",
+                "function": "subscribe",
+                "arguments": ["u8:1"],
+                "egldValue": "4,000,000,000,000,000",
+                "gasLimit": "15,000,000",
+                "gasPrice": "0"
+            },
+            "expect": {
+                "out": [],
+                "status": "0"
+            }
+        },
+        {
+            "step": "scQuery",
+            "id": "check-subscription-active",
+            "tx": {
+                "to": "sc:dialectical-payments",
+                "function": "checkSubscription",
+                "arguments": ["address:user1"]
+            },
+            "expect": {
+                "out": ["*"],
+                "status": "0"
+            }
+        },
+        {
+            "step": "scCall",
+            "id": "cancel-subscription",
+            "tx": {
+                "from": "address:user1",
+                "to": "sc:dialectical-payments",
+                "function": "cancelSubscription",
+                "arguments": [],
+                "gasLimit": "10,000,000",
+                "gasPrice": "0"
+            },
+            "expect": {
+                "out": [],
+                "status": "0"
+            }
+        }
+    ]
+}

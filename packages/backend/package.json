@@ -21,6 +21,9 @@
   "dependencies": {
     "@dialectical/ai-pipeline": "workspace:*",
     "@dialectical/shared": "workspace:*",
+    "@multiversx/sdk-core": "^15.3.1",
+    "@multiversx/sdk-native-auth-server": "^1.0.11",
+    "@multiversx/sdk-wallet": "^4.6.0",
     "@trpc/server": "^11.0.0",
     "bcryptjs": "^3.0.3",
     "express": "^5.0.0",

@@ -449,3 +449,205 @@ packages/frontend/
 │   └── fixtures/phase4-mocks.ts          # NEW: 15-argument branching tree mock
 └── package.json                           # MODIFIED: +dagre, +@types/dagre, +jsdom
 ```
+
+---
+
+## Phase 5 (2026-02-08)
+
+### MultiversX sdk-core v15: No More DevnetEntrypoint
+
+**Problem:** Plan referenced `DevnetEntrypoint` from sdk-core v15, but the actual API uses `TransactionsFactoryConfig` + `SmartContractTransactionsFactory` + `ApiNetworkProvider` directly.
+**Root cause:** The `DevnetEntrypoint` pattern was from earlier sdk-core docs. The v15.3.1 API stabilized on factory-based transaction building.
+**Fix:** Use the factory pattern:
+```typescript
+import {
+  TransactionsFactoryConfig,
+  SmartContractTransactionsFactory,
+  TransactionComputer,
+  ApiNetworkProvider,
+} from "@multiversx/sdk-core";
+
+const factoryConfig = new TransactionsFactoryConfig({ chainID: config.chainId });
+const factory = new SmartContractTransactionsFactory({ config: factoryConfig });
+const txComputer = new TransactionComputer();
+```
+**Rule:** For sdk-core v15+, use `SmartContractTransactionsFactory` for building SC call transactions. Do NOT look for `DevnetEntrypoint` or `Entrypoint` classes — they may not exist in the installed version.
+
+### Relayed Transactions v3: relayer Field on Transaction Object
+
+**Problem:** Needed to build Relayed v3 meta-transactions where the relayer pays gas.
+**Solution:** Set `innerTx.relayer = relayerAddress` directly on the transaction object before signing. The relayer signs the full transaction (not a separate envelope). v3 is simpler than v1/v2 — no wrapper transaction needed.
+```typescript
+innerTx.relayer = this.relayerAddress;
+const serialized = txComputer.computeBytesForSigning(innerTx);
+const signature = await this.signer.sign(serialized);
+innerTx.signature = signature;
+```
+**Rule:** v1/v2 relayed transactions are permanently deactivated (epoch 1918, Oct 2025). Only v3 works. Set `.relayer` on the inner tx and sign normally.
+
+### sdk-dapp v5 + Next.js 15 SSR: Dynamic Import Required
+
+**Problem:** `@multiversx/sdk-dapp` v5 uses Zustand internally and accesses `window`/`localStorage` at import time, causing Next.js 15 SSR crashes.
+**Fix:** Wrap the DappProvider in a `"use client"` component and use Next.js `dynamic()` with `ssr: false`:
+```typescript
+// multiversx-provider.tsx — "use client"
+import dynamic from "next/dynamic";
+const MultiversXProviderInner = dynamic(
+  () => import("@multiversx/sdk-dapp/DappProvider").then(mod => mod.default),
+  { ssr: false }
+);
+```
+**Rule:** Any MultiversX sdk-dapp component must be wrapped in `"use client"` and loaded via `dynamic({ ssr: false })`. Never import sdk-dapp in server components or layout.tsx directly.
+
+### UUID-to-u64 Mapping: Monotonic Counter in Neo4j
+
+**Problem:** Smart contract uses `u64` IDs but the app uses UUID strings.
+**Solution:** Monotonic counter stored on a Neo4j `:Counter` node. Atomic via `MERGE` + `SET c.value = c.value + 1`:
+```cypher
+MERGE (c:Counter {name: "onChainId"})
+ON CREATE SET c.value = 1
+ON MATCH SET c.value = c.value + 1
+WITH c.value AS newId
+MATCH (a:Argument {id: $uuid})
+SET a.onChainId = newId
+RETURN newId
+```
+**Rule:** For on-chain IDs, use a monotonic counter pattern in Neo4j. MERGE ensures idempotent creation. Each UUID gets a unique sequential u64.
+
+### Webhook HMAC Verification: Raw Body BEFORE express.json()
+
+**Problem:** xMoney/ACP webhooks need HMAC-SHA256 verification of the raw request body, but `express.json()` middleware parses and discards the raw bytes.
+**Fix:** Mount `express.raw({ type: "application/json" })` on webhook routes BEFORE the global `express.json()`:
+```typescript
+// In server.ts — raw body routes FIRST
+app.use("/api/webhooks/xmoney", express.raw({ type: "application/json" }));
+app.use(xmoneyWebhookRouter);
+app.post("/api/acp/webhook", express.raw({ type: "application/json" }), acpWebhookHandler);
+// THEN global JSON parsing
+app.use(express.json());
+```
+**Rule:** Webhook routes that need HMAC verification MUST be mounted before `express.json()` with `express.raw()`. Always use `timingSafeEqual` for signature comparison (prevents timing attacks).
+
+### Webhook Idempotency via Neo4j MERGE
+
+**Problem:** Payment webhooks can be replayed (network retries, manual resends). Processing the same event twice could double-credit a user.
+**Fix:** Use Neo4j `MERGE` on a `:WebhookEvent` node with the webhook ID as the unique key:
+```cypher
+MERGE (w:WebhookEvent {webhookId: $webhookId})
+ON CREATE SET w.processedAt = datetime(), w.eventType = $eventType
+RETURN w.processedAt IS NOT NULL AS alreadyProcessed
+```
+Check `isWebhookProcessed()` before processing, then `recordWebhookEvent()` after.
+**Rule:** All payment/subscription webhooks MUST be idempotent. Use MERGE-based dedup on the webhook/event ID.
+
+### x402 Protocol: Custom MultiversX Facilitator
+
+**Problem:** No existing MultiversX facilitator for x402 protocol (only EVM exists in `@x402/evm`).
+**Solution:** Built a custom facilitator with 3 endpoints:
+- `GET /supported` — returns supported tokens (USDC-ESDT on devnet)
+- `POST /verify` — fetches tx from `ApiNetworkProvider`, checks status, receiver, amount
+- `POST /settle` — confirms tx is finalized on-chain (no-op for MultiversX since txs are immediate)
+
+**Rule:** When implementing x402 for non-EVM chains, study the EVM facilitator from `@x402/evm` as reference. The 3-endpoint pattern (supported/verify/settle) is chain-agnostic.
+
+### ACP Session Store: In-Memory with TTL
+
+**Problem:** ACP checkout sessions need CRUD with automatic expiration.
+**Solution:** In-memory `Map<string, ACPSession>` with 30-minute TTL and periodic cleanup:
+```typescript
+const SESSION_TTL_MS = 30 * 60 * 1000;
+setInterval(() => { /* clean expired sessions */ }, 60_000);
+```
+**Rule:** For MVP/devnet, in-memory session store is acceptable. Track `// TODO(P5.AGENT.01): Upgrade to Neo4j persistence` for production.
+
+### Quality Score Encoding: Float to Integer
+
+**Problem:** Smart contract can't store floating-point numbers (0.0-1.0 quality scores).
+**Fix:** Encode as u32 integer: `Math.round(qualityScore * 10000)` gives range 0-10000.
+```typescript
+// Backend (encode): 0.82 → 8200
+const qualityScore = Math.round(input.qualityScore * 10000);
+// Smart contract (stored as u32): 8200
+// Frontend (decode): 8200 / 10000 → 0.82
+```
+**Rule:** For on-chain numeric precision, use integer encoding with a known multiplier. Document the encoding scheme in both the contract and the TypeScript types.
+
+### Fire-and-Forget with .catch() for Non-Critical Operations
+
+**Problem:** On-chain recording should not block or fail the user's argument generation.
+**Fix:** Fire-and-forget pattern with explicit `.catch()`:
+```typescript
+if (ctx.subscriptionTier !== "explorer") {
+  recordArgumentOnChain({ ... })
+    .catch((err: unknown) => { console.error("[on-chain-recording] Failed:", err); });
+}
+```
+**Rule:** For non-critical async operations (blockchain recording, analytics, etc.), use fire-and-forget with `.catch()`. NEVER use `void promise` without `.catch()` — it causes unhandled promise rejections.
+
+### Phase 5 File Structure Additions
+
+```
+packages/contracts/dialectical-payments/
+├── Cargo.toml
+├── multiversx.json
+├── src/
+│   ├── lib.rs                    # Main contract: 9 endpoints, 6 storage mappers
+│   ├── argument.rs              # ArgumentMetadata struct (TypeAbi + TopEncode/Decode)
+│   ├── subscription.rs          # SubscriptionInfo struct with is_active()
+│   └── events.rs                # Event module: argument_stored, subscription_created/cancelled
+├── meta/
+│   ├── Cargo.toml
+│   └── src/main.rs
+└── tests/
+    ├── dialectical_payments_test.rs  # 10 Rust blackbox tests
+    └── scenarios/
+        ├── subscribe_flow.scen.json
+        ├── store_argument.scen.json
+        └── access_control.scen.json
+
+packages/backend/src/
+├── blockchain/
+│   ├── config.ts                # getBlockchainConfig() from env vars
+│   ├── relayer.ts              # RelayerService: PEM keyfile, Relayed v3, singleton
+│   ├── queue.ts                # TransactionSemaphore (max 10 concurrent)
+│   └── argument-store.ts      # recordArgumentOnChain() — async, non-blocking
+├── auth/
+│   └── multiversx.ts          # validateNativeAuthToken() via NativeAuthServer
+├── db/queries/
+│   └── blockchain.ts          # getOrAssignOnChainId, setArgumentTxHash, webhook idempotency
+├── routes/
+│   ├── xmoney-webhook.ts      # HMAC-verified xMoney webhook handler
+│   ├── acp-checkout.ts        # 5 ACP REST endpoints (create/update/complete/cancel/get)
+│   ├── acp-products.ts        # Product feed ($0.10/argument)
+│   ├── acp-webhook.ts         # HMAC-verified ACP webhook
+│   ├── x402-facilitator.ts    # Custom MultiversX facilitator (verify/settle/supported)
+│   └── agent-generate.ts      # POST /api/agent/generate handler
+├── middleware/
+│   ├── x402-payment.ts        # HTTP 402 payment-gated middleware
+│   ├── agent-auth.ts          # ACP session / x402 proof / API key auth
+│   └── agent-rate-limit.ts   # 100 req/hr per agent, sliding window
+├── agent/
+│   └── acp-session-store.ts   # In-memory checkout sessions with 30min TTL
+└── trpc/procedures/
+    └── subscription.ts        # createCheckout, getSubscriptionInfo, cancelSubscription
+
+packages/frontend/
+├── app/profile/
+│   ├── page.tsx               # User profile: wallet + subscription sections
+│   └── wallet/page.tsx        # Wallet connection page
+├── src/
+│   ├── lib/multiversx.ts     # Devnet config (apiUrl, chainId, explorer, contract)
+│   ├── providers/multiversx-provider.tsx  # DappProvider wrapper ("use client", ssr: false)
+│   ├── hooks/
+│   │   ├── useWallet.ts       # Wallet state (address, connected, disconnect)
+│   │   └── useSubscription.ts # Subscription state + xMoney checkout
+│   └── components/
+│       ├── auth/WalletConnect.tsx         # 4 provider buttons (xPortal, DeFi, Web, Ledger)
+│       └── pricing/
+│           ├── SubscribeButton.tsx       # Opens xMoney checkout
+│           ├── UsageBar.tsx             # Progress bar with percentage
+│           └── SubscriptionStatus.tsx   # Tier label, renewal, usage, cancel
+├── e2e/
+│   ├── blockchain-integration.spec.ts   # 3 E2E tests (wallet, subscription, on-chain)
+│   └── fixtures/phase5-mocks.ts        # mockWalletFlow, mockSubscriptionFlow, mockOnChainRecording
+```
