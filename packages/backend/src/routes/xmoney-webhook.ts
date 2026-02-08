@@ -1,4 +1,5 @@
 import { Router } from "express";
+import type { Router as IRouter } from "express";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { XMoneyWebhookEventSchema } from "@dialectical/shared";
 import { getSession } from "../db/neo4j.js";
@@ -15,7 +16,7 @@ import {
  * Must be mounted BEFORE express.json() with express.raw() on this route
  * so the raw body is available for HMAC verification.
  */
-export const xmoneyWebhookRouter = Router();
+export const xmoneyWebhookRouter: IRouter = Router();
 
 /**
  * Verify HMAC-SHA256 signature from xMoney.

@@ -34,6 +34,13 @@ export async function agentGenerateHandler(req: Request, res: Response): Promise
   }
 
   const { debateId, parentId, type } = parsed.data;
+
+  // Pipeline only supports PRO/CON generation — THESIS is the root and cannot be generated
+  if (type === "THESIS") {
+    res.status(400).json({ error: "Cannot generate THESIS arguments — only PRO or CON" });
+    return;
+  }
+
   const agentId = (req as unknown as Record<string, unknown>)["agentId"] as string;
 
   const session = getSession();
@@ -97,7 +104,7 @@ export async function agentGenerateHandler(req: Request, res: Response): Promise
 
       res.json({
         argument: savedArgument,
-        stagesCompleted: result.stagesCompleted,
+        stagesCompleted: result.stages.length,
       });
       return;
     }

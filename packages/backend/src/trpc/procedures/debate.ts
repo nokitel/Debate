@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { CreateDebateInputSchema, DebateSchema, ArgumentSchema } from "@dialectical/shared";
-import { router, publicProcedure, protectedProcedure } from "../trpc.js";
+import {
+  router,
+  publicProcedure,
+  protectedProcedure,
+  rateLimitedCreateProcedure,
+} from "../trpc.js";
 import { getSession } from "../../db/neo4j.js";
 import {
   createDebateWithThesis,
@@ -9,11 +14,12 @@ import {
   getDebateById,
   getDebateTree,
   archiveDebate,
+  getPopularDebates,
 } from "../../db/queries/debate.js";
 
 export const debateRouter = router({
-  /** Create a new debate with an initial thesis. Requires auth. */
-  create: protectedProcedure
+  /** Create a new debate with an initial thesis. Requires auth + rate limiting (10/day). */
+  create: rateLimitedCreateProcedure
     .input(CreateDebateInputSchema)
     .output(z.object({ debate: DebateSchema, thesis: ArgumentSchema }))
     .mutation(async ({ input, ctx }) => {
@@ -30,12 +36,15 @@ export const debateRouter = router({
       }
     }),
 
-  /** List debates with cursor-based pagination. Public. */
+  /** List debates with cursor-based pagination, filtering, and sorting. Public. */
   list: publicProcedure
     .input(
       z.object({
         limit: z.number().int().min(1).max(50).default(20),
         cursor: z.string().datetime().optional(),
+        sort: z.enum(["newest", "oldest", "most-arguments"]).default("newest"),
+        titleSearch: z.string().max(200).optional(),
+        minArguments: z.number().int().min(0).optional(),
       }),
     )
     .output(
@@ -51,6 +60,9 @@ export const debateRouter = router({
         return await listDebates(session, {
           limit: input.limit,
           cursor: input.cursor,
+          sort: input.sort,
+          titleSearch: input.titleSearch,
+          minArguments: input.minArguments,
         });
       } finally {
         await session.close();
@@ -78,6 +90,19 @@ export const debateRouter = router({
       const session = getSession();
       try {
         return await getDebateTree(session, input.debateId);
+      } finally {
+        await session.close();
+      }
+    }),
+
+  /** Get most popular public debates (by total arguments). Public. */
+  getPopular: publicProcedure
+    .input(z.object({ limit: z.number().int().min(1).max(10).default(3) }))
+    .output(z.array(DebateSchema))
+    .query(async ({ input }) => {
+      const session = getSession();
+      try {
+        return await getPopularDebates(session, input.limit);
       } finally {
         await session.close();
       }

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { PipelineTier, SubscriptionInfoSchema } from "@dialectical/shared";
+import { PipelineTier, SubscriptionInfoSchema, TIER_CONFIGS } from "@dialectical/shared";
 import { router, protectedProcedure } from "../trpc.js";
 import { getSession as getNeo4jSession } from "../../db/neo4j.js";
 import { findUserById } from "../../db/queries/user.js";
@@ -63,11 +63,9 @@ export const subscriptionRouter = router({
         isActive: user.subscriptionTier !== "explorer",
         argumentsUsed: user.argumentsUsedThisMonth,
         argumentsLimit:
-          user.subscriptionTier === "explorer" || user.subscriptionTier === "institution"
-            ? null
-            : user.subscriptionTier === "thinker"
-              ? 200
-              : 1000,
+          TIER_CONFIGS[user.subscriptionTier].maxArgumentsPerMonth === Infinity
+            ? 999999
+            : TIER_CONFIGS[user.subscriptionTier].maxArgumentsPerMonth,
         renewalDate: null, // TODO: store from xMoney webhook
         xmoneySubscriptionId: null, // TODO: store from xMoney webhook
       };

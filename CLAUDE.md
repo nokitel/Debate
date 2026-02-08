@@ -36,6 +36,9 @@ Read `Plan.md` Section 1 for the full ADR table. Key constraints:
 - NEVER use IPFS for argument storage — store full text directly on-chain via SingleValueMapper
 - NEVER import from `@multiversx/sdk-network-providers` — DEPRECATED, use providers from `@multiversx/sdk-core` directly
 - NEVER use Relayed Transactions v1 or v2 — v3 ONLY (v1/v2 permanently deactivated Oct 2025, epoch 1918)
+- NEVER import `middleware` from `trpc/trpc.ts` in middleware files — import from `trpc/base.ts` to avoid circular deps
+- NEVER use `rawInput` property on tRPC middleware context — use `getRawInput()` (async function, tRPC v11 API)
+- NEVER add `version:` field to Docker Compose files — obsolete since Compose v2
 
 
 ## Skill Files
@@ -149,6 +152,7 @@ Append `.md` to any docs.multiversx.com URL for markdown version:
 ## Quick Commands
 
 ```bash
+# Development
 pnpm install                    # Install all dependencies
 pnpm turbo build                # Build all packages
 pnpm turbo test                 # Run unit + integration tests
@@ -158,6 +162,11 @@ pnpm turbo typecheck            # Type-check all packages
 docker compose up neo4j -d      # Start Neo4j (dev)
 docker compose down             # Stop all containers
 pnpm turbo dev                  # Start all dev servers
+
+# Production
+docker compose -f docker-compose.prod.yml config   # Validate prod stack
+docker compose -f docker-compose.prod.yml up -d     # Start prod services
+docker compose -f docker-compose.prod.yml logs -f   # Tail prod logs
 ```
 
 ## Package Map
@@ -178,7 +187,10 @@ pnpm turbo dev                  # Start all dev servers
 - `packages/shared/src/schemas/` — All Zod schemas (source of truth for types)
 - `packages/shared/src/constants/tiers.ts` — Subscription tier configuration
 - `packages/shared/src/constants/pipeline.ts` — LOCAL_MODEL_POOL and pipeline thresholds
+- `packages/backend/src/trpc/base.ts` — tRPC primitives (initTRPC, router, middleware, publicProcedure) — import middleware from HERE, not trpc.ts
+- `packages/backend/src/trpc/trpc.ts` — Procedure builders (protectedProcedure, tieredProcedure, rateLimited*) — uses base.ts + middleware
 - `packages/backend/src/trpc/router.ts` — Root appRouter (exports AppRouter type)
+- `packages/backend/src/middleware/` — Rate limiting, sanitization, security (Helmet+CSP)
 - `packages/backend/src/db/queries/` — All Neo4j Cypher queries
 - `packages/ai-pipeline/src/orchestrator.ts` — Pipeline entry point (runPipeline)
 - `packages/frontend/src/lib/trpc.ts` — tRPC React client setup

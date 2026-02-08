@@ -184,3 +184,50 @@
 - New frontend deps: @multiversx/sdk-dapp, @multiversx/sdk-native-auth-client
 - P5.SC.03 (devnet deploy) deferred — requires Rust toolchain + mxpy CLI not available on current machine
 - Key patterns: UUID→u64 monotonic counter, webhook HMAC + idempotency via MERGE, fire-and-forget on-chain recording, quality score float→u32 encoding (×10000)
+
+---
+
+# Phase 6 — Polish, Security & Launch
+
+## P6.BE — Backend Hardening
+- [x] P6.BE.01 — Rate limiting & abuse prevention (5/min + 20/hr generation, 10/day debate create) <!-- COMPLETED: 2026-02-08 -->
+- [x] P6.BE.02 — Input sanitization & security hardening (Helmet, CSP, HTML stripping, CORS tightening) <!-- COMPLETED: 2026-02-08 -->
+- [x] P6.BE.03 — Neo4j query performance optimization (5 indexes, UNWIND batching, configurable pool) <!-- COMPLETED: 2026-02-08 -->
+
+## P6.FE — Frontend Polish
+- [x] P6.FE.01 — Landing page (5 SSR components with Suspense, getPopular query) <!-- COMPLETED: 2026-02-08 -->
+- [x] P6.FE.02 — Public debate explorer (DebateFilters, sort/search/minArgs, URL sync, Load More) <!-- COMPLETED: 2026-02-08 -->
+
+## P6.OPS — Infrastructure
+- [ ] P6.OPS.01 — Provision Hetzner CX33 server (MANUAL — human only)
+- [ ] P6.OPS.02 — Domain DNS configuration (MANUAL — human only)
+- [x] P6.OPS.03 — Docker Compose production stack (4 services, health checks, SSE proxy) <!-- COMPLETED: 2026-02-08 -->
+- [ ] P6.OPS.04 — Tailscale tunnel to Mac Mini (MANUAL — human only)
+- [x] P6.OPS.05 — Deployment automation (CI on push, deploy on v* tag) <!-- COMPLETED: 2026-02-08 -->
+
+## P6.DOCS — Documentation
+- [x] P6.DOCS.01 — API documentation (custom OpenAPI + HTML explorer at /api/docs) <!-- COMPLETED: 2026-02-08 -->
+- [x] P6.DOCS.02 — Deployment guide (env vars, Docker, CI/CD, backup, rollback) <!-- COMPLETED: 2026-02-08 -->
+
+## P6.E2E — Final Gate
+- [x] P6.E2E.01 — Full MVP E2E test suite (7 tests, 5-min global timeout) <!-- COMPLETED: 2026-02-08 -->
+
+## Results
+- 20 new files + 12 modified files across backend, frontend, infrastructure
+- Backend: rate-limit.ts (dual-window factory), security.ts (Helmet+CSP), sanitize.ts (HTML stripping), api-docs.ts (OpenAPI), Dockerfile
+- Frontend: 5 landing components, DebateFilters.tsx, E2E suite (7 tests), Dockerfile
+- Infrastructure: docker-compose.prod.yml, nginx config, 2 GitHub Actions workflows
+- New dep: helmet
+- `pnpm turbo build` succeeds, zero new type errors introduced
+- Key lessons: tRPC v11 uses getRawInput() not rawInput, trpc-panel incompatible with v11, base.ts breaks circular deps
+- **Remaining manual tasks:** P6.OPS.01 (Hetzner), P6.OPS.02 (DNS), P6.OPS.04 (Tailscale), P5.SC.03 (devnet deploy)
+
+## Next Steps
+1. **Provision Hetzner CX33** (P6.OPS.01) — create server, install Docker, configure firewall
+2. **Configure DNS** (P6.OPS.02) — A/AAAA records for dezbatere.ro, Certbot TLS
+3. **Set up Tailscale** (P6.OPS.04) — tunnel between VPS and Mac Mini for Ollama
+4. **Deploy smart contract** (P5.SC.03) — requires Rust toolchain + mxpy on a machine with the tools
+5. **First deploy** — `git tag v0.1.0 && git push --tags` to trigger deploy workflow
+6. **Fix pre-existing type errors** — relayer.ts (sdk-core types), subscription.ts (argumentsLimit null), agent-generate.ts (THESIS type), WalletConnect.tsx (sdk-dapp hooks), multiversx-provider.tsx (DappProvider types)
+7. **Run full E2E suite** — `pnpm turbo test:e2e` to validate all 6 phase gate tests pass together
+8. **Lighthouse audit** — run on landing page after deployment to validate Core Web Vitals

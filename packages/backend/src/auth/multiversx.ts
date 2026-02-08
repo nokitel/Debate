@@ -46,7 +46,7 @@ export async function validateNativeAuthToken(token: string): Promise<NativeAuth
   return {
     address: result.address,
     origin: result.origin,
-    expiresIn: result.maxExpirySeconds,
+    expiresIn: result.expires - Math.floor(Date.now() / 1000),
   };
 }
 

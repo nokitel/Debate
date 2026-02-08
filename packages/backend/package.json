@@ -27,6 +27,7 @@
     "@trpc/server": "^11.0.0",
     "bcryptjs": "^3.0.3",
     "express": "^5.0.0",
+    "helmet": "^8.1.0",
     "neo4j-driver": "^5.27.0",
     "next-auth": "^5.0.0-beta.25",
     "zod": "^3.24.0"

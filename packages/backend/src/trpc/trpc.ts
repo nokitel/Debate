@@ -1,35 +1,31 @@
-import { initTRPC, TRPCError } from "@trpc/server";
+import { TRPCError } from "@trpc/server";
 import { TIER_CONFIGS } from "@dialectical/shared";
 import type { PipelineTier } from "@dialectical/shared";
-import type { Context } from "./context.js";
+import { router, middleware, publicProcedure } from "./base.js";
 import { getSession } from "../db/neo4j.js";
 import { getUserTierInfo } from "../db/queries/user.js";
+import { generateRateLimiter, createDebateRateLimiter } from "../middleware/rate-limit.js";
+import { sanitizeMiddleware } from "../middleware/sanitize.js";
 
-const t = initTRPC.context<Context>().create();
-
-export const router = t.router;
-export const middleware = t.middleware;
-
-/** Public procedure — no auth required. */
-export const publicProcedure = t.procedure;
+export { router, middleware, publicProcedure };
 
 /** Auth check middleware — throws UNAUTHORIZED if no session. */
-const enforceAuth = t.middleware(({ ctx, next }) => {
+const enforceAuth = middleware(({ ctx, next }) => {
   if (!ctx.userId) {
     throw new TRPCError({ code: "UNAUTHORIZED", message: "Authentication required" });
   }
   return next({ ctx: { ...ctx, userId: ctx.userId } });
 });
 
-/** Protected procedure — requires authenticated session. */
-export const protectedProcedure = t.procedure.use(enforceAuth);
+/** Protected procedure — requires authenticated session + input sanitization. */
+export const protectedProcedure = publicProcedure.use(enforceAuth).use(sanitizeMiddleware);
 
 /**
  * Tier enforcement middleware — checks subscription limits.
  * Enriches context with subscriptionTier and argumentsUsedThisMonth.
  * Throws FORBIDDEN if the user has exceeded their monthly argument quota.
  */
-const enforceTier = t.middleware(async ({ ctx, next }) => {
+const enforceTier = middleware(async ({ ctx, next }) => {
   if (!ctx.userId) {
     throw new TRPCError({ code: "UNAUTHORIZED", message: "Authentication required" });
   }
@@ -69,4 +65,21 @@ const enforceTier = t.middleware(async ({ ctx, next }) => {
  * Tiered procedure — requires auth + subscription enforcement.
  * Context is enriched with subscriptionTier and argumentsUsedThisMonth.
  */
-export const tieredProcedure = t.procedure.use(enforceAuth).use(enforceTier);
+export const tieredProcedure = publicProcedure.use(enforceAuth).use(enforceTier);
+
+/**
+ * Rate-limited generation procedure — auth + tier + generation rate limiter.
+ * Enforces 5/minute AND 20/hour per userId.
+ */
+export const rateLimitedGenerateProcedure = publicProcedure
+  .use(enforceAuth)
+  .use(enforceTier)
+  .use(generateRateLimiter);
+
+/**
+ * Rate-limited debate creation procedure — auth + creation rate limiter.
+ * Enforces 10/day per userId.
+ */
+export const rateLimitedCreateProcedure = publicProcedure
+  .use(enforceAuth)
+  .use(createDebateRateLimiter);

@@ -10,7 +10,12 @@ import {
 import type { CandidateArgument } from "@dialectical/shared";
 import type { PipelineInput, DebateContext } from "@dialectical/ai-pipeline";
 import { runPipeline } from "@dialectical/ai-pipeline";
-import { router, publicProcedure, protectedProcedure, tieredProcedure } from "../trpc.js";
+import {
+  router,
+  publicProcedure,
+  protectedProcedure,
+  rateLimitedGenerateProcedure,
+} from "../trpc.js";
 import { getSession } from "../../db/neo4j.js";
 import {
   submitArgument,
@@ -94,8 +99,8 @@ export const argumentRouter = router({
       }
     }),
 
-  /** Generate an AI argument. Requires auth + tier enforcement. Triggers the pipeline. */
-  generate: tieredProcedure
+  /** Generate an AI argument. Requires auth + tier + rate limiting. Triggers the pipeline. */
+  generate: rateLimitedGenerateProcedure
     .input(CreateArgumentInputSchema)
     .output(PipelineResultSchema)
     .mutation(async ({ input, ctx }) => {

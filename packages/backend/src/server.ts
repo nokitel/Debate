@@ -10,6 +10,8 @@ import { x402FacilitatorRouter } from "./routes/x402-facilitator.js";
 import { agentGenerateHandler } from "./routes/agent-generate.js";
 import { agentAuthMiddleware } from "./middleware/agent-auth.js";
 import { agentRateLimit } from "./middleware/agent-rate-limit.js";
+import { applySecurityMiddleware } from "./middleware/security.js";
+import { apiDocsRouter } from "./routes/api-docs.js";
 
 /**
  * Creates and configures the Express application.
@@ -18,15 +20,21 @@ import { agentRateLimit } from "./middleware/agent-rate-limit.js";
 export function createApp(): express.Express {
   const app = express();
 
+  // Security headers (Helmet + CSP) — before all routes
+  applySecurityMiddleware(app);
+
   const frontendUrl = process.env["FRONTEND_URL"] ?? "http://localhost:3000";
 
-  // CORS middleware
-  app.use((_req, res, next) => {
-    res.header("Access-Control-Allow-Origin", frontendUrl);
+  // CORS middleware — validate origin against FRONTEND_URL
+  app.use((req, res, next) => {
+    const origin = req.headers["origin"];
+    if (origin === frontendUrl || !origin) {
+      res.header("Access-Control-Allow-Origin", frontendUrl);
+    }
     res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
     res.header("Access-Control-Allow-Credentials", "true");
-    if (_req.method === "OPTIONS") {
+    if (req.method === "OPTIONS") {
       res.status(204).end();
       return;
     }
@@ -71,6 +79,9 @@ export function createApp(): express.Express {
     agentRateLimit,
     agentGenerateHandler,
   );
+
+  // API documentation
+  app.use(apiDocsRouter);
 
   // tRPC API
   app.use(

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { Request, Response } from "express";
+import type { Router as IRouter, Request, Response } from "express";
 import { z } from "zod";
 import {
   createSession,
@@ -16,7 +16,7 @@ export { acpWebhookHandler } from "./acp-webhook.js";
  * ACP Checkout Session REST endpoints.
  * Per the OpenAI/Stripe ACP specification — 5 endpoints for checkout session lifecycle.
  */
-export const acpCheckoutRouter = Router();
+export const acpCheckoutRouter: IRouter = Router();
 
 // Mount product feed
 acpCheckoutRouter.use(acpProductsRouter);

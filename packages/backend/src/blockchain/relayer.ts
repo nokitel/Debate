@@ -37,7 +37,7 @@ export class RelayerService {
     // Load PEM keyfile
     const pemContent = readFileSync(config.relayerKeyfilePath, "utf-8");
     this.signer = UserSigner.fromPem(pemContent);
-    this.relayerAddress = this.signer.getAddress();
+    this.relayerAddress = Address.newFromBech32(this.signer.getAddress().bech32());
 
     // Network provider
     this.provider = new ApiNetworkProvider(config.apiUrl);
@@ -123,8 +123,7 @@ export class RelayerService {
       const qualityScore = Math.round(input.qualityScore * 10000);
 
       // Build the inner transaction (the SC call)
-      const innerTx = this.factory!.createTransactionForExecute({
-        sender: this.relayerAddress!,
+      const innerTx = await this.factory!.createTransactionForExecute(this.relayerAddress!, {
         contract: contractAddress,
         function: "storeArgument",
         gasLimit: BigInt(config.maxGasLimit),

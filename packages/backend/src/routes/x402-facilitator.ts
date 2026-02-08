@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { Request, Response } from "express";
+import type { Router as IRouter, Request, Response } from "express";
 import { z } from "zod";
 import { ApiNetworkProvider } from "@multiversx/sdk-core";
 
@@ -13,7 +13,7 @@ import { ApiNetworkProvider } from "@multiversx/sdk-core";
  *
  * Reference: EVM facilitator from @x402/evm, adapted for MultiversX ESDT (USDC).
  */
-export const x402FacilitatorRouter = Router();
+export const x402FacilitatorRouter: IRouter = Router();
 
 /** USDC token identifier on MultiversX devnet. */
 const USDC_TOKEN_ID = process.env["X402_USDC_TOKEN_ID"] ?? "USDC-c76f1f";

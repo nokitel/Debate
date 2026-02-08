@@ -1,10 +1,31 @@
 "use client";
 
+import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { DebateCard } from "./DebateCard";
 
-export function DebateList(): React.JSX.Element {
-  const { data, isLoading, error } = trpc.debate.list.useQuery({ limit: 20 });
+type SortOption = "newest" | "oldest" | "most-arguments";
+
+interface DebateListProps {
+  sort?: SortOption;
+  titleSearch?: string;
+  minArguments?: number;
+}
+
+export function DebateList({
+  sort = "newest",
+  titleSearch = "",
+  minArguments = 0,
+}: DebateListProps): React.JSX.Element {
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+
+  const { data, isLoading, error } = trpc.debate.list.useQuery({
+    limit: 20,
+    cursor,
+    sort,
+    titleSearch: titleSearch || undefined,
+    minArguments: minArguments > 0 ? minArguments : undefined,
+  });
 
   if (isLoading) {
     return <p className="text-center text-[var(--color-text-secondary)]">Loading debates...</p>;
@@ -27,10 +48,15 @@ export function DebateList(): React.JSX.Element {
       {data.debates.map((debate) => (
         <DebateCard key={debate.id} debate={debate} />
       ))}
-      {data.hasNext && (
-        <p className="text-center text-sm text-[var(--color-text-secondary)]">
-          More debates available...
-        </p>
+      {data.hasNext && data.nextCursor && (
+        <div className="text-center">
+          <button
+            onClick={() => setCursor(data.nextCursor ?? undefined)}
+            className="rounded-md border border-[var(--color-border)] px-4 py-2 text-sm font-medium hover:bg-[var(--color-bg-secondary)]"
+          >
+            Load More
+          </button>
+        </div>
       )}
     </div>
   );

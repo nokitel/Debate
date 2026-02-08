@@ -10,10 +10,15 @@ interface CreateDebateParams {
   createdBy: string;
 }
 
+type SortOption = "newest" | "oldest" | "most-arguments";
+
 interface ListDebatesParams {
   limit: number;
   cursor?: string;
   createdBy?: string;
+  sort?: SortOption;
+  titleSearch?: string;
+  minArguments?: number;
 }
 
 interface ListDebatesResult {
@@ -91,7 +96,7 @@ export async function createDebateWithThesis(
 }
 
 /**
- * List debates with cursor-based pagination.
+ * List debates with cursor-based pagination, filtering, and sorting.
  * Fetches limit+1 to detect if there are more results.
  */
 export async function listDebates(
@@ -99,30 +104,44 @@ export async function listDebates(
   params: ListDebatesParams,
 ): Promise<ListDebatesResult> {
   const fetchLimit = params.limit + 1;
+  const sort = params.sort ?? "newest";
+  const queryParams: Record<string, unknown> = {
+    limit: fetchLimit,
+    sort,
+  };
 
-  let query: string;
-  const queryParams: Record<string, unknown> = { limit: fetchLimit };
+  // Build WHERE conditions
+  const conditions = ["d.status = 'active'"];
 
   if (params.cursor) {
-    query = params.createdBy
-      ? `MATCH (d:Debate)
-         WHERE d.createdAt < $cursor AND d.createdBy = $createdBy AND d.status = 'active'
-         RETURN d ORDER BY d.createdAt DESC LIMIT $limit`
-      : `MATCH (d:Debate)
-         WHERE d.createdAt < $cursor AND d.status = 'active'
-         RETURN d ORDER BY d.createdAt DESC LIMIT $limit`;
+    conditions.push("d.createdAt < $cursor");
     queryParams["cursor"] = params.cursor;
-    if (params.createdBy) queryParams["createdBy"] = params.createdBy;
-  } else {
-    query = params.createdBy
-      ? `MATCH (d:Debate)
-         WHERE d.createdBy = $createdBy AND d.status = 'active'
-         RETURN d ORDER BY d.createdAt DESC LIMIT $limit`
-      : `MATCH (d:Debate)
-         WHERE d.status = 'active'
-         RETURN d ORDER BY d.createdAt DESC LIMIT $limit`;
-    if (params.createdBy) queryParams["createdBy"] = params.createdBy;
   }
+  if (params.createdBy) {
+    conditions.push("d.createdBy = $createdBy");
+    queryParams["createdBy"] = params.createdBy;
+  }
+  if (params.titleSearch) {
+    conditions.push("toLower(d.title) CONTAINS toLower($titleSearch)");
+    queryParams["titleSearch"] = params.titleSearch;
+  }
+  if (params.minArguments !== undefined && params.minArguments > 0) {
+    conditions.push("d.totalNodes >= $minArguments");
+    queryParams["minArguments"] = params.minArguments;
+  }
+
+  const whereClause = conditions.join(" AND ");
+
+  // SAFETY: $sort is validated via Zod enum ("newest" | "oldest" | "most-arguments"),
+  // never raw user input. CASE expressions prevent Cypher injection.
+  const query = `MATCH (d:Debate)
+     WHERE ${whereClause}
+     RETURN d
+     ORDER BY
+       CASE WHEN $sort = 'newest' THEN d.createdAt END DESC,
+       CASE WHEN $sort = 'oldest' THEN d.createdAt END ASC,
+       CASE WHEN $sort = 'most-arguments' THEN d.totalNodes END DESC
+     LIMIT $limit`;
 
   const result = await session.run(query, queryParams);
 
@@ -182,6 +201,21 @@ export async function archiveDebate(
   );
 
   return result.records.length > 0;
+}
+
+/**
+ * Get the most popular active debates, ordered by total argument count.
+ */
+export async function getPopularDebates(session: Session, limit: number): Promise<Debate[]> {
+  const result = await session.run(
+    `MATCH (d:Debate {status: 'active'})
+     RETURN d ORDER BY d.totalNodes DESC LIMIT $limit`,
+    { limit },
+  );
+
+  return result.records
+    .map((record) => extractNode<Debate>(record, "d"))
+    .filter((d): d is Debate => d !== null);
 }
 
 /**

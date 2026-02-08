@@ -651,3 +651,150 @@ packages/frontend/
 │   ├── blockchain-integration.spec.ts   # 3 E2E tests (wallet, subscription, on-chain)
 │   └── fixtures/phase5-mocks.ts        # mockWalletFlow, mockSubscriptionFlow, mockOnChainRecording
 ```
+
+## Phase 6 (2026-02-08)
+
+### tRPC v11 Middleware: getRawInput() Not rawInput
+
+**Problem:** `sanitize.ts` middleware tried to access `rawInput` property directly from the middleware context object, causing `TS2339: Property 'rawInput' does not exist`.
+**Root cause:** tRPC v11 changed the middleware API. The raw input is no longer a direct property on the context — it's an async function `getRawInput()` that must be called.
+**Fix:** Use `getRawInput()` (async) instead of `rawInput`:
+```typescript
+// WRONG (tRPC v10 pattern):
+export const sanitizeMiddleware = middleware(({ rawInput, next }) => { ... });
+
+// CORRECT (tRPC v11):
+export const sanitizeMiddleware = middleware(async ({ getRawInput, next }) => {
+  const rawInput = await getRawInput();
+  ...
+});
+```
+**Rule:** When writing tRPC middleware, always use `getRawInput()` as an async function call. Never access `rawInput` as a direct property — that's tRPC v10 API.
+
+### trpc-panel Incompatible with tRPC v11
+
+**Problem:** Tried to install `trpc-panel` for API documentation UI. `npm ls` showed peer dependency conflict: `trpc-panel` requires `@trpc/server@^10.0.0` but the project uses v11.9.0.
+**Root cause:** `trpc-panel` hasn't been updated for tRPC v11. The `trpc-to-openapi` library has the same issue.
+**Fix:** Built a custom lightweight API docs endpoint that walks the tRPC router's `_def.procedures` to extract procedure paths and types, generates an OpenAPI-compatible JSON document, and serves a simple HTML explorer UI.
+**Rule:** Before adding tRPC ecosystem packages, always check their peer dependencies for tRPC v11 compatibility. Most tRPC v10 ecosystem tools haven't been ported yet. Building a lightweight custom solution is often faster than fighting version incompatibilities.
+
+### Docker Compose `version` Field Deprecated
+
+**Problem:** `docker compose config` warned: `version is obsolete`.
+**Root cause:** Docker Compose v2 (the Go rewrite that's now default) no longer uses the `version: "3.8"` field. It auto-detects the format. The field was only needed for the old Python Docker Compose v1.
+**Fix:** Remove the `version` field entirely from `docker-compose.prod.yml`.
+**Rule:** Never include `version:` in new Docker Compose files. It's been deprecated since Compose v2 became the default.
+
+### tRPC Circular Import Prevention with base.js
+
+**Problem:** Both `rate-limit.ts` and `sanitize.ts` middleware files need the `middleware` function from tRPC. Importing from `trpc.ts` would create a circular dependency since `trpc.ts` imports these middleware files.
+**Root cause:** `trpc.ts` defines procedure builders that use the middleware, creating a circular import chain: `trpc.ts` → `rate-limit.ts` → `trpc.ts`.
+**Fix:** Extract `initTRPC`, `router`, `middleware`, and `publicProcedure` into a separate `trpc/base.ts` file. Both `trpc.ts` and middleware files import from `base.ts`, breaking the cycle.
+```
+trpc/base.ts      → exports: router, middleware, publicProcedure (no middleware imports)
+trpc/trpc.ts      → imports base.ts + middleware files → exports procedure builders
+middleware/*.ts    → imports base.ts only (no circular dep)
+```
+**Rule:** When adding new tRPC middleware that needs the `middleware` function, always import from `trpc/base.js`, never from `trpc/trpc.js`. The base file contains the primitive tRPC building blocks; `trpc.ts` composes them into procedure builders.
+
+### Express Router Type Portability (TS2742)
+
+**Problem:** `export const apiDocsRouter = Router()` caused `TS2742: The inferred type of 'apiDocsRouter' cannot be named without a reference to internal modules`.
+**Root cause:** TypeScript inferred the return type of `Router()` as an internal Express type that isn't directly importable. When another file imports this, TypeScript can't generate proper type declarations.
+**Fix:** Add an explicit type annotation using the publicly exported `IRouter` interface:
+```typescript
+import { Router, type IRouter } from "express";
+export const apiDocsRouter: IRouter = Router();
+```
+**Rule:** When exporting Express Router instances, always add an explicit `: IRouter` type annotation to avoid TS2742 portability errors.
+
+### Dynamic Cypher ORDER BY with CASE Expressions
+
+**Problem:** Needed dynamic sorting for debate list queries (newest, oldest, most-arguments) without string concatenation into Cypher.
+**Root cause:** Cypher doesn't support parameterized ORDER BY column names (`ORDER BY $column` is invalid).
+**Fix:** Use CASE expressions with a validated enum parameter:
+```cypher
+ORDER BY
+  CASE WHEN $sort = 'newest' THEN d.createdAt END DESC,
+  CASE WHEN $sort = 'oldest' THEN d.createdAt END ASC,
+  CASE WHEN $sort = 'most-arguments' THEN d.totalNodes END DESC
+```
+The `$sort` value is validated by Zod enum (`z.enum(["newest", "oldest", "most-arguments"])`) before reaching the query, so injection is impossible.
+**Rule:** For dynamic ORDER BY in Cypher, use CASE expressions with parameterized sort keys validated by Zod enum. Never concatenate sort field names into query strings.
+
+### Neo4j UNWIND for Batch Operations
+
+**Problem:** `saveRejectedArguments` was running individual `session.run()` calls in a loop for each rejected argument, creating N separate transactions.
+**Root cause:** Original implementation pattern was per-item writes, which is inefficient for batch operations and increases latency.
+**Fix:** Use Cypher `UNWIND` to batch all items into a single query:
+```cypher
+UNWIND $items AS item
+CREATE (r:RejectedArgument {id: item.id, ...})
+WITH r, item
+MATCH (d:Debate {id: item.debateId})
+CREATE (d)-[:HAS_REJECTED]->(r)
+```
+**Rule:** When saving multiple items to Neo4j, always use `UNWIND $items` with a single query instead of looping `session.run()`. This reduces round-trips from N to 1.
+
+### Next.js 15 Async searchParams
+
+**Problem:** Next.js 15 page components receive `searchParams` as a `Promise`, not a synchronous object.
+**Root cause:** Next.js 15 changed the `searchParams` type from `Record<string, string | string[] | undefined>` to `Promise<Record<string, string | string[] | undefined>>` for server components.
+**Fix:** Declare pages as async and await searchParams:
+```typescript
+export default async function DebatesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<React.ReactElement> {
+  const params = await searchParams;
+  const sort = typeof params["sort"] === "string" ? params["sort"] : "newest";
+  ...
+}
+```
+**Rule:** In Next.js 15 server components, always `await searchParams` before accessing values. The type is `Promise<...>`, not a direct object.
+
+### Phase 6 File Map
+
+```
+packages/backend/
+├── src/
+│   ├── middleware/
+│   │   ├── rate-limit.ts          # Unified rate limiter factory (dual-window support)
+│   │   ├── rate-limit.test.ts     # 6 unit tests (within, exceed, retry, isolation, dual, unauth)
+│   │   ├── security.ts            # Helmet + CSP (defaultSrc self, no unsafe-inline scripts)
+│   │   └── sanitize.ts            # HTML tag stripping on mutation inputs via getRawInput()
+│   ├── routes/
+│   │   └── api-docs.ts            # OpenAPI JSON at /api/docs/openapi.json + HTML explorer at /api/docs
+│   └── trpc/
+│       ├── base.ts                # initTRPC, router, middleware, publicProcedure (no circular deps)
+│       └── trpc.ts                # Re-exports base + defines enforceAuth, enforceTier, procedure builders
+├── Dockerfile                     # Multi-stage: deps → build → runner (node:22-alpine)
+
+packages/frontend/
+├── app/
+│   ├── page.tsx                   # Full landing page (SSR, 5 server components with Suspense)
+│   └── debates/page.tsx           # Async searchParams, filter/sort support
+├── src/components/
+│   ├── landing/
+│   │   ├── HeroSection.tsx        # Full-width hero with headline + 2 CTAs
+│   │   ├── FeatureHighlights.tsx  # 4-card grid (AI, stress-test, blockchain, visual trees)
+│   │   ├── PublicDebatePreview.tsx # Server component + skeleton fallback
+│   │   ├── PricingCTA.tsx         # Tier comparison with /pricing link
+│   │   └── Footer.tsx             # Links + copyright
+│   └── debate/
+│       └── DebateFilters.tsx      # Sort dropdown + search + min-args filter, URL sync
+├── e2e/
+│   ├── full-mvp-flow.spec.ts     # 7 E2E tests (browse, auth, free-tier, paid-tier, wallet, tree, filter)
+│   └── fixtures/phase6-mocks.ts  # mockFilteredDebates, mockPopularDebate, mockPaidTierGeneration
+├── Dockerfile                     # Multi-stage standalone output
+
+(root)/
+├── docker-compose.prod.yml        # 4 services: nginx, frontend, backend, neo4j + health checks
+├── nginx/
+│   ├── nginx.conf                 # Worker config, gzip, keepalive
+│   └── conf.d/default.conf        # HTTP→HTTPS, TLS, reverse proxy, SSE proxy_buffering off
+└── .github/workflows/
+    ├── ci.yml                     # Build + typecheck + lint + test on push to main + PRs
+    └── deploy.yml                 # SSH deploy to Hetzner on v* tag
+```

@@ -1,10 +1,11 @@
 import { Router } from "express";
+import type { Router as IRouter } from "express";
 
 /**
  * ACP product feed — describes the products available for purchase by AI agents.
  * Per the OpenAI/Stripe ACP specification.
  */
-export const acpProductsRouter = Router();
+export const acpProductsRouter: IRouter = Router();
 
 export interface AcpProduct {
   id: string;

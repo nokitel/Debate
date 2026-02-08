@@ -8,9 +8,10 @@ export function getDriver(): Driver {
     const uri = process.env["NEO4J_URI"] ?? "bolt://localhost:7687";
     const user = process.env["NEO4J_USER"] ?? "neo4j";
     const password = process.env["NEO4J_PASSWORD"] ?? "dialectical";
+    const maxPoolSize = parseInt(process.env["NEO4J_MAX_POOL_SIZE"] ?? "50", 10);
 
     driver = neo4j.driver(uri, neo4j.auth.basic(user, password), {
-      maxConnectionPoolSize: 50,
+      maxConnectionPoolSize: maxPoolSize,
       connectionAcquisitionTimeout: 30_000,
     });
   }
@@ -54,6 +55,23 @@ export async function initSchema(): Promise<void> {
          \`vector.dimensions\`: 384,
          \`vector.similarity_function\`: 'cosine'
        }}`,
+    );
+
+    // Composite indexes for query performance
+    await session.run(
+      "CREATE INDEX debate_status_createdAt IF NOT EXISTS FOR (d:Debate) ON (d.status, d.createdAt)",
+    );
+    await session.run(
+      "CREATE INDEX argument_debateId IF NOT EXISTS FOR (a:Argument) ON (a.debateId)",
+    );
+    await session.run(
+      "CREATE INDEX argument_parentId IF NOT EXISTS FOR (a:Argument) ON (a.parentId)",
+    );
+    await session.run(
+      "CREATE INDEX rejected_debateId IF NOT EXISTS FOR (r:RejectedArgument) ON (r.debateId)",
+    );
+    await session.run(
+      "CREATE INDEX user_walletAddress IF NOT EXISTS FOR (u:User) ON (u.walletAddress)",
     );
   } finally {
     await session.close();

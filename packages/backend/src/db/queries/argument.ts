@@ -28,6 +28,7 @@ export async function submitArgument(
 ): Promise<Argument> {
   const now = new Date().toISOString();
   const argumentId = randomUUID();
+  // SAFETY: relType is derived from Zod-validated enum ("PRO" | "CON"), not user input
   const relType = params.type === "PRO" ? "HAS_PRO" : "HAS_CON";
 
   const result = await session.run(
@@ -138,35 +139,38 @@ interface SaveRejectedArgumentParams {
 
 /**
  * Save rejected arguments linked to their parent via EXPLORED relationship.
- * Does NOT increase debate.totalNodes.
+ * Uses UNWIND for batch insertion. Does NOT increase debate.totalNodes.
  */
 export async function saveRejectedArguments(
   session: Session,
   params: SaveRejectedArgumentParams[],
 ): Promise<void> {
+  if (params.length === 0) return;
+
   const now = new Date().toISOString();
 
-  for (const p of params) {
-    await session.run(
-      `MATCH (parent:Argument {id: $parentId, debateId: $debateId})
-       CREATE (r:RejectedArgument {
-         id: $id, text: $text, rejectionReason: $rejectionReason,
-         failedAtStage: $failedAtStage, qualityScore: $qualityScore,
-         debateId: $debateId, parentId: $parentId, createdAt: $now
-       })
-       CREATE (parent)-[:EXPLORED]->(r)`,
-      {
-        parentId: p.parentId,
-        debateId: p.debateId,
-        id: p.id,
-        text: p.text,
-        rejectionReason: p.rejectionReason,
-        failedAtStage: p.failedAtStage,
-        qualityScore: p.qualityScore,
-        now,
-      },
-    );
-  }
+  const items = params.map((p) => ({
+    parentId: p.parentId,
+    debateId: p.debateId,
+    id: p.id,
+    text: p.text,
+    rejectionReason: p.rejectionReason,
+    failedAtStage: p.failedAtStage,
+    qualityScore: p.qualityScore,
+    createdAt: now,
+  }));
+
+  await session.run(
+    `UNWIND $items AS item
+     MATCH (parent:Argument {id: item.parentId, debateId: item.debateId})
+     CREATE (r:RejectedArgument {
+       id: item.id, text: item.text, rejectionReason: item.rejectionReason,
+       failedAtStage: item.failedAtStage, qualityScore: item.qualityScore,
+       debateId: item.debateId, parentId: item.parentId, createdAt: item.createdAt
+     })
+     CREATE (parent)-[:EXPLORED]->(r)`,
+    { items },
+  );
 }
 
 /**
@@ -317,6 +321,7 @@ export async function saveGeneratedArgument(
 ): Promise<Argument> {
   const now = new Date().toISOString();
   const argumentId = randomUUID();
+  // SAFETY: relType is derived from Zod-validated enum ("PRO" | "CON"), not user input
   const relType = params.type === "PRO" ? "HAS_PRO" : "HAS_CON";
 
   const result = await session.run(
