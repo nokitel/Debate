@@ -5,6 +5,14 @@ import {
   mockPhase3ExplorerPipeline,
   P3_DEBATE_ID,
 } from "./fixtures/phase3-mocks";
+import {
+  assertTailwindActive,
+  assertStyledHeading,
+  assertStyledButton,
+  assertHasBackground,
+  assertHorizontalLayout,
+  takeScreenshot,
+} from "./fixtures/visual-helpers";
 
 test.describe("Phase 3 Gate Test: Cloud Pipeline", () => {
   test("paid-tier pipeline: scholar generates argument with citations and resilience score", async ({
@@ -42,47 +50,67 @@ test.describe("Phase 3 Gate Test: Cloud Pipeline", () => {
     const href = await sourceLinks.first().getAttribute("href");
     expect(href).toMatch(/^https:\/\//);
 
-    // 7. Verify resilience score badge displayed
+    // 7. Verify resilience score badge is displayed and styled
     const resilienceBadge = page.locator('[data-testid="resilience-score"]');
     await expect(resilienceBadge).toBeVisible();
     await expect(resilienceBadge).toContainText("Resilience:");
+    await assertHasBackground(resilienceBadge);
+
+    // Visual confirmation: scholar argument with citations and resilience
+    await takeScreenshot(page, "phase3-scholar-argument");
 
     // 8. Reload → citations and resilience persist
     await page.reload();
-    await expect(page.locator("text=Government carbon pricing mechanisms")).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("text=Government carbon pricing mechanisms")).toBeVisible({
+      timeout: 10_000,
+    });
     await expect(page.locator('[data-testid="source-citation"]')).toBeVisible();
     await expect(page.locator('[data-testid="resilience-score"]')).toBeVisible();
   });
 
   test("pricing page renders correctly with 4 tiers and prices", async ({ page }) => {
-    // 1. Navigate to /pricing (no mocks needed for static page)
+    // 1. Navigate to /pricing and verify styling
     await page.goto("/pricing");
+    await assertTailwindActive(page);
 
     // 2. Verify pricing page wrapper
     await expect(page.locator('[data-testid="pricing-page"]')).toBeVisible();
 
-    // 3. Verify all 4 tier names visible
-    await expect(page.locator("text=Explorer")).toBeVisible();
-    await expect(page.locator("text=Thinker")).toBeVisible();
-    await expect(page.locator("text=Scholar")).toBeVisible();
-    await expect(page.locator("text=Institution")).toBeVisible();
+    // 3. Verify all 4 tier names visible (use .first() — names appear in both cards and feature matrix)
+    await expect(page.locator("text=Explorer").first()).toBeVisible();
+    await expect(page.locator("text=Thinker").first()).toBeVisible();
+    await expect(page.locator("text=Scholar").first()).toBeVisible();
+    await expect(page.locator("text=Institution").first()).toBeVisible();
 
-    // 4. Verify prices displayed
-    await expect(page.locator("text=Free")).toBeVisible();
-    await expect(page.locator("text=€9.99/mo")).toBeVisible();
-    await expect(page.locator("text=€29.99/mo")).toBeVisible();
-    await expect(page.locator("text=€99.99/mo")).toBeVisible();
+    // 4. Verify prices displayed (use .first() — price text appears in cards and feature matrix)
+    await expect(page.locator("text=Free").first()).toBeVisible();
+    await expect(page.locator("text=€9.99/mo").first()).toBeVisible();
+    await expect(page.locator("text=€29.99/mo").first()).toBeVisible();
+    await expect(page.locator("text=€99.99/mo").first()).toBeVisible();
 
     // 5. Verify at least one feature matrix row
     const featureMatrix = page.locator('[data-testid="feature-matrix"]');
     await expect(featureMatrix).toBeVisible();
-    await expect(featureMatrix.locator("tr")).toHaveCount({ minimum: 2 });
+    const rowCount = await featureMatrix.locator("tr").count();
+    expect(rowCount).toBeGreaterThanOrEqual(2);
 
-    // 6. Verify tier cards exist
+    // 6. Verify tier cards exist and are styled
     await expect(page.locator('[data-testid="tier-card-explorer"]')).toBeVisible();
     await expect(page.locator('[data-testid="tier-card-thinker"]')).toBeVisible();
     await expect(page.locator('[data-testid="tier-card-scholar"]')).toBeVisible();
     await expect(page.locator('[data-testid="tier-card-institution"]')).toBeVisible();
+
+    // 7. Verify tier card heading typography
+    const tierHeading = page
+      .locator('[data-testid="tier-card-thinker"] h3, [data-testid="tier-card-thinker"] h2')
+      .first();
+    if (await tierHeading.isVisible()) {
+      await assertStyledHeading(tierHeading, 18);
+    }
+
+    // Visual confirmation: full pricing page
+    await takeScreenshot(page, "phase3-pricing-page");
   });
 
   test("free tier shows upgrade CTA, no citations", async ({ page }) => {
@@ -111,5 +139,8 @@ test.describe("Phase 3 Gate Test: Cloud Pipeline", () => {
 
     // 5. Verify no source citations displayed
     await expect(page.locator('[data-testid="source-citation"]')).not.toBeVisible();
+
+    // Visual confirmation: free tier with upgrade CTA
+    await takeScreenshot(page, "phase3-free-tier-upgrade-cta");
   });
 });

@@ -20,12 +20,20 @@ import {
 import { hashPassword, verifyPassword } from "../../auth/credentials.js";
 import { checkRateLimit, resetRateLimit } from "../../auth/rate-limit.js";
 import { validateNativeAuthToken } from "../../auth/multiversx.js";
+import { signToken } from "../../auth/jwt.js";
 
 export const authRouter = router({
-  /** Register a new user with email/password. */
+  /** Register a new user with email/password. Auto-logs in by returning a JWT. */
   register: publicProcedure
     .input(EmailPasswordRegisterInputSchema)
-    .output(z.object({ userId: z.string().uuid() }))
+    .output(
+      z.object({
+        userId: z.string().uuid(),
+        email: z.string().email(),
+        displayName: z.string(),
+        token: z.string(),
+      }),
+    )
     .mutation(async ({ input }) => {
       const session = getNeo4jSession();
       try {
@@ -45,13 +53,20 @@ export const authRouter = router({
           passwordHash,
         });
 
-        return { userId: user.id };
+        const token = signToken(user.id);
+
+        return {
+          userId: user.id,
+          email: input.email,
+          displayName: input.displayName,
+          token,
+        };
       } finally {
         await session.close();
       }
     }),
 
-  /** Login with email/password. Returns user info for JWT creation. */
+  /** Login with email/password. Returns user info + JWT token. */
   login: publicProcedure
     .input(EmailPasswordLoginInputSchema)
     .output(
@@ -59,6 +74,7 @@ export const authRouter = router({
         userId: z.string().uuid(),
         email: z.string().email(),
         displayName: z.string(),
+        token: z.string(),
       }),
     )
     .mutation(async ({ input }) => {
@@ -89,10 +105,13 @@ export const authRouter = router({
 
         resetRateLimit(input.email);
 
+        const token = signToken(user.id);
+
         return {
           userId: user.id,
           email: user.email ?? input.email,
           displayName: user.displayName,
+          token,
         };
       } finally {
         await session.close();
@@ -117,6 +136,7 @@ export const authRouter = router({
         userId: z.string().uuid(),
         walletAddress: z.string(),
         displayName: z.string(),
+        token: z.string(),
       }),
     )
     .mutation(async ({ input }) => {
@@ -142,10 +162,12 @@ export const authRouter = router({
       const session = getNeo4jSession();
       try {
         const user = await findOrCreateWalletUser(session, input.address);
+        const token = signToken(user.id);
         return {
           userId: user.id,
           walletAddress: input.address,
           displayName: user.displayName,
+          token,
         };
       } finally {
         await session.close();

@@ -32,6 +32,7 @@ Thumbs.db
 coverage/
 test-results/
 playwright-report/
+e2e/screenshots/
 
 # Rust / Smart Contracts
 packages/contracts/**/target/

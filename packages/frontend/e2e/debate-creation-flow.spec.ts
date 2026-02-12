@@ -1,6 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { mockAuthFlow } from "./fixtures/auth-mocks";
 import { mockDebateAndPipeline, DEBATE_ID } from "./fixtures/ai-mocks";
+import {
+  assertTailwindActive,
+  assertStyledHeading,
+  assertStyledButton,
+  takeScreenshot,
+} from "./fixtures/visual-helpers";
 
 test.describe("Phase 1 Gate Test: Debate Creation Flow", () => {
   test.beforeEach(async ({ page }) => {
@@ -12,9 +18,10 @@ test.describe("Phase 1 Gate Test: Debate Creation Flow", () => {
   test("full flow: login → create debate → generate argument → verify persistence", async ({
     page,
   }) => {
-    // 1. Navigate to home page
+    // 1. Navigate to home page and verify styling
     await page.goto("/");
-    await expect(page.locator("h1")).toContainText("Dialectical Engine");
+    await assertTailwindActive(page);
+    await expect(page.locator("h1")).toContainText("Structured Debate");
 
     // 2. Navigate to create debate page
     await page.click('text="Create Debate"');
@@ -30,14 +37,17 @@ test.describe("Phase 1 Gate Test: Debate Creation Flow", () => {
     // 5. Verify redirect to debate page with thesis card
     await expect(page).toHaveURL(`/debates/${DEBATE_ID}`);
     await expect(page.locator("h1")).toContainText("Should AI be regulated?");
+    await assertStyledHeading(page.locator("h1").first(), 20);
 
-    // 6. Verify thesis card is visible
+    // 6. Verify thesis card is visible and styled
     await expect(page.locator("text=AI should be regulated")).toBeVisible();
     await expect(page.locator("text=Thesis")).toBeVisible();
+    await takeScreenshot(page, "phase1-debate-page");
 
-    // 7. Click "Generate CON" on thesis
+    // 7. Click "Generate CON" on thesis — verify button is styled
     const conButton = page.locator('[data-testid="generate-con"]').first();
     await expect(conButton).toBeVisible();
+    await assertStyledButton(conButton);
     await conButton.click();
 
     // 8. Verify new argument card appears after generation
@@ -53,5 +63,8 @@ test.describe("Phase 1 Gate Test: Debate Creation Flow", () => {
     // 11. Verify thesis and generated argument still visible after reload
     await expect(page.locator("text=AI should be regulated")).toBeVisible();
     await expect(page.locator("text=Without regulation")).toBeVisible();
+
+    // 12. Visual confirmation: argument cards have proper layout
+    await takeScreenshot(page, "phase1-with-argument");
   });
 });

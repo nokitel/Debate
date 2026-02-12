@@ -1,4 +1,5 @@
 import type { Session } from "neo4j-driver";
+import neo4j from "neo4j-driver";
 import { randomUUID } from "node:crypto";
 import type { Argument, Debate } from "@dialectical/shared";
 import { extractNode, extractScalar } from "./helpers.js";
@@ -21,8 +22,11 @@ interface ListDebatesParams {
   minArguments?: number;
 }
 
+/** Debate with resolved creator display name from the User node. */
+export type DebateWithCreator = Debate & { createdByName: string | null };
+
 interface ListDebatesResult {
-  debates: Debate[];
+  debates: DebateWithCreator[];
   hasNext: boolean;
   nextCursor: string | null;
 }
@@ -106,7 +110,7 @@ export async function listDebates(
   const fetchLimit = params.limit + 1;
   const sort = params.sort ?? "newest";
   const queryParams: Record<string, unknown> = {
-    limit: fetchLimit,
+    limit: neo4j.int(fetchLimit),
     sort,
   };
 
@@ -127,7 +131,7 @@ export async function listDebates(
   }
   if (params.minArguments !== undefined && params.minArguments > 0) {
     conditions.push("d.totalNodes >= $minArguments");
-    queryParams["minArguments"] = params.minArguments;
+    queryParams["minArguments"] = neo4j.int(params.minArguments);
   }
 
   const whereClause = conditions.join(" AND ");
@@ -136,7 +140,8 @@ export async function listDebates(
   // never raw user input. CASE expressions prevent Cypher injection.
   const query = `MATCH (d:Debate)
      WHERE ${whereClause}
-     RETURN d
+     OPTIONAL MATCH (u:User {id: d.createdBy})
+     RETURN d, u.displayName AS createdByName
      ORDER BY
        CASE WHEN $sort = 'newest' THEN d.createdAt END DESC,
        CASE WHEN $sort = 'oldest' THEN d.createdAt END ASC,
@@ -147,8 +152,13 @@ export async function listDebates(
 
   const debates = result.records
     .slice(0, params.limit)
-    .map((record) => extractNode<Debate>(record, "d"))
-    .filter((d): d is Debate => d !== null);
+    .map((record) => {
+      const debate = extractNode<Debate>(record, "d");
+      if (!debate) return null;
+      const name = record.get("createdByName") as string | null;
+      return { ...debate, createdByName: name };
+    })
+    .filter((d): d is DebateWithCreator => d !== null);
 
   const hasNext = result.records.length > params.limit;
   const lastDebate = debates[debates.length - 1];
@@ -206,16 +216,26 @@ export async function archiveDebate(
 /**
  * Get the most popular active debates, ordered by total argument count.
  */
-export async function getPopularDebates(session: Session, limit: number): Promise<Debate[]> {
+export async function getPopularDebates(
+  session: Session,
+  limit: number,
+): Promise<DebateWithCreator[]> {
   const result = await session.run(
     `MATCH (d:Debate {status: 'active'})
-     RETURN d ORDER BY d.totalNodes DESC LIMIT $limit`,
-    { limit },
+     OPTIONAL MATCH (u:User {id: d.createdBy})
+     RETURN d, u.displayName AS createdByName
+     ORDER BY d.totalNodes DESC LIMIT $limit`,
+    { limit: neo4j.int(limit) },
   );
 
   return result.records
-    .map((record) => extractNode<Debate>(record, "d"))
-    .filter((d): d is Debate => d !== null);
+    .map((record) => {
+      const debate = extractNode<Debate>(record, "d");
+      if (!debate) return null;
+      const name = record.get("createdByName") as string | null;
+      return { ...debate, createdByName: name };
+    })
+    .filter((d): d is DebateWithCreator => d !== null);
 }
 
 /**

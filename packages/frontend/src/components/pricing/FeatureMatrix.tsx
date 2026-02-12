@@ -19,7 +19,7 @@ const FEATURE_ROWS: FeatureRow[] = [
     label: "Price",
     getValue: (tier) => {
       const config = TIER_CONFIGS[tier];
-      return config.priceEur === 0 ? "Free" : `€${config.priceEur}/mo`;
+      return config.priceEur === 0 ? "Free" : `\u20AC${config.priceEur}/mo`;
     },
   },
   {
@@ -59,20 +59,21 @@ const FEATURE_ROWS: FeatureRow[] = [
 ];
 
 /**
- * Feature comparison table across all tiers.
+ * Feature comparison table — warm public theme.
  * Reads values from TIER_CONFIGS (not hardcoded).
  */
 export function FeatureMatrix(): React.JSX.Element {
   return (
-    <div className="overflow-x-auto" data-testid="feature-matrix">
+    <div
+      className="overflow-x-auto rounded-xl border border-[var(--pub-border)]"
+      data-testid="feature-matrix"
+    >
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-[var(--color-border)]">
-            <th className="py-3 text-left font-medium text-[var(--color-text-secondary)]">
-              Feature
-            </th>
+          <tr className="border-b border-[var(--pub-border)] bg-[var(--pub-section)]">
+            <th className="px-4 py-3 text-left font-medium text-[var(--pub-text-sec)]">Feature</th>
             {TIER_NAMES.map((tier) => (
-              <th key={tier} className="py-3 text-center font-medium">
+              <th key={tier} className="px-4 py-3 text-center font-semibold text-[var(--pub-text)]">
                 {TIER_DISPLAY[tier]}
               </th>
             ))}
@@ -80,10 +81,10 @@ export function FeatureMatrix(): React.JSX.Element {
         </thead>
         <tbody>
           {FEATURE_ROWS.map((row) => (
-            <tr key={row.label} className="border-b border-[var(--color-border)]">
-              <td className="py-2 text-[var(--color-text-secondary)]">{row.label}</td>
+            <tr key={row.label} className="border-b border-[var(--pub-border)]">
+              <td className="px-4 py-3 text-[var(--pub-text-sec)]">{row.label}</td>
               {TIER_NAMES.map((tier) => (
-                <td key={tier} className="py-2 text-center">
+                <td key={tier} className="px-4 py-3 text-center text-[var(--pub-text)]">
                   {row.getValue(tier)}
                 </td>
               ))}

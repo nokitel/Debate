@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { CreateDebateInputSchema, DebateSchema, ArgumentSchema } from "@dialectical/shared";
+
+const DebateWithCreatorSchema = DebateSchema.extend({
+  createdByName: z.string().nullable(),
+});
 import {
   router,
   publicProcedure,
@@ -49,7 +53,7 @@ export const debateRouter = router({
     )
     .output(
       z.object({
-        debates: z.array(DebateSchema),
+        debates: z.array(DebateWithCreatorSchema),
         hasNext: z.boolean(),
         nextCursor: z.string().nullable(),
       }),
@@ -98,7 +102,7 @@ export const debateRouter = router({
   /** Get most popular public debates (by total arguments). Public. */
   getPopular: publicProcedure
     .input(z.object({ limit: z.number().int().min(1).max(10).default(3) }))
-    .output(z.array(DebateSchema))
+    .output(z.array(DebateWithCreatorSchema))
     .query(async ({ input }) => {
       const session = getSession();
       try {

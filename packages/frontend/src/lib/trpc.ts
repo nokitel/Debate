@@ -3,6 +3,7 @@
 import { createTRPCReact, type CreateTRPCReact } from "@trpc/react-query";
 import { httpBatchLink, type TRPCLink } from "@trpc/client";
 import type { AppRouter } from "@dialectical/backend";
+import { useAuthStore } from "@/stores/auth-store";
 
 // SAFETY: Explicit type annotation avoids TS2742 portability error
 export const trpc: CreateTRPCReact<AppRouter, unknown> = createTRPCReact<AppRouter>();
@@ -15,6 +16,10 @@ export function getTRPCClient(): ReturnType<typeof trpc.createClient> {
       httpBatchLink({
         url: `${BACKEND_URL}/api/trpc`,
         headers() {
+          const token = useAuthStore.getState().token;
+          if (token) {
+            return { Authorization: `Bearer ${token}` };
+          }
           return {};
         },
       }) as TRPCLink<AppRouter>,

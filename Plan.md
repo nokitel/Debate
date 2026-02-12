@@ -1683,6 +1683,28 @@ CREATE VECTOR INDEX argument_embedding IF NOT EXISTS
 - `docker compose -f docker-compose.prod.yml config` validates successfully
 - **Remaining manual tasks:** P6.OPS.01 (Hetzner provisioning), P6.OPS.02 (DNS configuration), P6.OPS.04 (Tailscale tunnel), P5.SC.03 (devnet deploy)
 
+## 11b. Phase 7: Debate Interaction & E2E Fixes (2026-02-10)
+
+Auth flow working (JWT login/register). Debate detail page had critical gaps preventing actual usage: no Navbar/Footer, no user argument submission, no auth guards, non-reactive argument counts, stale auth mocks. Also established batch-aware tRPC E2E testing pattern.
+
+### P7.FE — Frontend Interaction Fixes
+
+- [x] P7.FE.01 — Add Navbar/Footer/PublicLayout to debate detail page (`/debates/[id]`) <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.FE.02 — Create WriteArgumentButton component (inline textarea + `argument.submit` mutation) <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.FE.03 — Add auth guards to GenerateButton (open login modal if unauthenticated) <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.FE.04 — Wire WriteArgumentButton into ArgumentCard alongside GenerateButton pair <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.FE.05 — Fix DebateView reactivity bug (move `useDebateStore` selector before early returns) <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.FE.06 — Add `data-testid` to LoginModal and `name` attrs to EmailPasswordForm inputs <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.FE.07 — DebateCard: show creator display name instead of raw UUID (`createdBy` shows raw user ID) <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.FE.08 — Clean up duplicate test debates from Neo4j database (4 debates titled "Test Debate" by same user) <!-- COMPLETED: 2026-02-10 -->
+
+### P7.E2E — Debate Interaction E2E Tests
+
+- [x] P7.E2E.01 — Create batch-aware tRPC mock utility (`e2e/fixtures/trpc-mock.ts`) for httpBatchLink <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.E2E.02 — Update auth mock fixtures with `token` field for JWT auth <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.E2E.03 — Write 6 E2E test cases in `debate-interaction.spec.ts` <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.E2E.04 — All 6 E2E tests passing (auth guards, login flow, argument submission, navbar state, reactive counts) <!-- COMPLETED: 2026-02-10 -->
+
 ---
 
 ## 12. Testing Strategy

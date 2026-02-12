@@ -1,12 +1,19 @@
 import { test, expect } from "@playwright/test";
 import { mockPhase4TreeDebate, P4_DEBATE_ID, P4_THESIS_ID } from "./fixtures/phase4-mocks";
+import {
+  assertTailwindActive,
+  assertHasBackground,
+  assertStyledButton,
+  takeScreenshot,
+} from "./fixtures/visual-helpers";
 
 test.describe("Phase 4 Gate Test: Tree Visualization", () => {
   test("card view is default, toggle switches to tree view", async ({ page }) => {
     await mockPhase4TreeDebate(page);
     await page.goto(`/debates/${P4_DEBATE_ID}`);
+    await assertTailwindActive(page);
 
-    // View toggle is visible
+    // View toggle is visible and styled
     const toggle = page.locator('[data-testid="view-toggle"]');
     await expect(toggle).toBeVisible();
 
@@ -31,6 +38,9 @@ test.describe("Phase 4 Gate Test: Tree Visualization", () => {
 
     // URL updated with ?view=tree
     expect(page.url()).toContain("view=tree");
+
+    // Visual confirmation: tree view rendered with styling
+    await takeScreenshot(page, "phase4-tree-view");
   });
 
   test("tree renders typed argument nodes", async ({ page }) => {
@@ -41,18 +51,24 @@ test.describe("Phase 4 Gate Test: Tree Visualization", () => {
     const treeContainer = page.locator('[data-testid="tree-view-container"]');
     await expect(treeContainer).toBeVisible();
 
-    // THESIS node visible
+    // THESIS node visible and styled with background
     const thesisNode = page.locator(`[data-testid="tree-node-${P4_THESIS_ID}"]`);
     await expect(thesisNode).toBeVisible();
     await expect(thesisNode).toHaveAttribute("data-argument-type", "THESIS");
+    await assertHasBackground(thesisNode);
 
-    // PRO nodes visible
+    // PRO nodes visible with styling
     const proNodes = page.locator('[data-argument-type="PRO"]');
     await expect(proNodes.first()).toBeVisible();
+    await assertHasBackground(proNodes.first());
 
-    // CON nodes visible
+    // CON nodes visible with styling
     const conNodes = page.locator('[data-argument-type="CON"]');
     await expect(conNodes.first()).toBeVisible();
+    await assertHasBackground(conNodes.first());
+
+    // Visual confirmation: tree with typed nodes
+    await takeScreenshot(page, "phase4-typed-nodes");
   });
 
   test("clicking a node expands to show strategy", async ({ page }) => {

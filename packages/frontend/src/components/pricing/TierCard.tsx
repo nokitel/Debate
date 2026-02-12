@@ -22,13 +22,12 @@ const TIER_DESCRIPTIONS: Record<string, string> = {
 };
 
 /**
- * Individual tier pricing card.
- * Displays tier name, price, description, key features, and CTA.
+ * Individual tier pricing card — warm public theme.
  */
 export function TierCard({ name, config, isCurrentTier }: TierCardProps): React.JSX.Element {
   const displayName = TIER_DISPLAY_NAMES[name] ?? name;
   const description = TIER_DESCRIPTIONS[name] ?? "";
-  const priceLabel = config.priceEur === 0 ? "Free" : `€${config.priceEur}/mo`;
+  const priceLabel = config.priceEur === 0 ? "Free" : `\u20AC${config.priceEur}/mo`;
   const stageCount = config.enabledStages.length;
 
   const features: string[] = [
@@ -47,22 +46,28 @@ export function TierCard({ name, config, isCurrentTier }: TierCardProps): React.
     features.push(hassonnet ? "Claude Sonnet" : "Claude Haiku");
   }
 
+  const isHighlighted = name === "thinker";
+
   return (
     <div
-      className="flex flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] p-6 shadow-sm"
+      className={`flex flex-col rounded-xl border bg-[var(--pub-surface)] p-6 ${
+        isHighlighted
+          ? "border-[var(--pub-accent)] ring-2 ring-[var(--pub-accent)]/20"
+          : "border-[var(--pub-border)]"
+      }`}
       data-testid={`tier-card-${name}`}
     >
-      <h3 className="text-lg font-bold">{displayName}</h3>
-      <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{description}</p>
+      <h3 className="font-serif-display text-lg font-bold text-[var(--pub-text)]">{displayName}</h3>
+      <p className="mt-1 text-sm text-[var(--pub-text-sec)]">{description}</p>
 
       <div className="my-4">
-        <span className="text-3xl font-bold">{priceLabel}</span>
+        <span className="text-3xl font-bold text-[var(--pub-text)]">{priceLabel}</span>
       </div>
 
       <ul className="flex-1 space-y-2">
         {features.map((feature) => (
-          <li key={feature} className="flex items-center gap-2 text-sm">
-            <span className="text-green-600">✓</span>
+          <li key={feature} className="flex items-center gap-2 text-sm text-[var(--pub-text)]">
+            <span className="text-[var(--color-pro)]">&#10003;</span>
             {feature}
           </li>
         ))}

@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { Header } from "@/components/layout/Header";
+import { Navbar } from "@/components/layout/Navbar";
+import { PublicLayout } from "@/components/layout/PublicLayout";
 import { DebateList } from "@/components/debate/DebateList";
 import { DebateFilters } from "@/components/debate/DebateFilters";
 import { LoginModal } from "@/components/auth/LoginModal";
+import { Footer } from "@/components/landing/Footer";
 
 type SortOption = "newest" | "oldest" | "most-arguments";
 
@@ -25,22 +27,25 @@ export default async function DebatesPage({
     typeof params["minArgs"] === "string" ? parseInt(params["minArgs"], 10) || 0 : 0;
 
   return (
-    <>
-      <Header />
-      <main className="mx-auto max-w-4xl px-4 py-8">
+    <PublicLayout>
+      <Navbar variant="warm" />
+      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Debates</h1>
+          <h1 className="font-serif-display text-2xl font-semibold text-[var(--pub-text)]">
+            Public Debates
+          </h1>
           <Link
             href="/debates/new"
-            className="rounded-md bg-[var(--color-thesis)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            className="rounded-lg bg-[var(--pub-accent)] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--pub-accent-hover)]"
           >
-            New Debate
+            + New Debate
           </Link>
         </div>
         <DebateFilters sort={sort} titleSearch={titleSearch} minArguments={minArguments} />
         <DebateList sort={sort} titleSearch={titleSearch} minArguments={minArguments} />
       </main>
+      <Footer />
       <LoginModal />
-    </>
+    </PublicLayout>
   );
 }

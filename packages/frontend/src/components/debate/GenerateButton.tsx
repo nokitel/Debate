@@ -1,6 +1,7 @@
 "use client";
 
 import { trpc } from "@/lib/trpc";
+import { useAuthStore } from "@/stores/auth-store";
 import { useDebateStore } from "@/stores/debate-store";
 import { useUIStore } from "@/stores/ui-store";
 import { UserInputField } from "./UserInputField";
@@ -16,6 +17,8 @@ export function GenerateButton({
   debateId,
   type,
 }: GenerateButtonProps): React.JSX.Element {
+  const user = useAuthStore((s) => s.user);
+  const openLoginModal = useUIStore((s) => s.openLoginModal);
   const addArgument = useDebateStore((s) => s.addArgument);
   const setQualityGate = useDebateStore((s) => s.setQualityGate);
   const qualityGates = useDebateStore((s) => s.qualityGates);
@@ -44,19 +47,25 @@ export function GenerateButton({
   });
 
   const isPro = type === "PRO";
-  const label = isPro ? "+ Pro" : "+ Con";
+  const label = isPro ? "+ Support" : "+ Challenge";
   const colorClass = isPro
-    ? "border-[var(--color-pro)] text-[var(--color-pro)] hover:bg-green-50 dark:hover:bg-green-950/20"
-    : "border-[var(--color-con)] text-[var(--color-con)] hover:bg-red-50 dark:hover:bg-red-950/20";
+    ? "border-2 border-green-500 text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950/20"
+    : "border-2 border-red-500 text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20";
 
   const isDisabled = generateMutation.isPending || qualityGateActive;
 
   return (
     <div>
       <button
-        onClick={() => generateMutation.mutate({ parentId, debateId, type })}
+        onClick={() => {
+          if (!user) {
+            openLoginModal();
+            return;
+          }
+          generateMutation.mutate({ parentId, debateId, type });
+        }}
         disabled={isDisabled}
-        className={`rounded border px-2 py-0.5 text-xs font-medium ${colorClass} disabled:opacity-50`}
+        className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${colorClass} disabled:opacity-50`}
         data-testid={`generate-${type.toLowerCase()}`}
         title={qualityGateActive ? "AI couldn't find a strong argument" : undefined}
       >

@@ -13,7 +13,12 @@ export async function mockAuthFlow(page: Page): Promise<void> {
       body: JSON.stringify([
         {
           result: {
-            data: { userId: "test-user-123" },
+            data: {
+              userId: "test-user-123",
+              email: "test@example.com",
+              displayName: "Test User",
+              token: "mock-jwt-token",
+            },
           },
         },
       ]),
@@ -32,6 +37,7 @@ export async function mockAuthFlow(page: Page): Promise<void> {
               userId: "test-user-123",
               email: "test@example.com",
               displayName: "Test User",
+              token: "mock-jwt-token",
             },
           },
         },

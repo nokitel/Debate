@@ -1,5 +1,6 @@
 import { Suspense } from "react";
-import { Header } from "@/components/layout/Header";
+import { Navbar } from "@/components/layout/Navbar";
+import { PublicLayout } from "@/components/layout/PublicLayout";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { FeatureHighlights } from "@/components/landing/FeatureHighlights";
 import {
@@ -11,17 +12,17 @@ import { Footer } from "@/components/landing/Footer";
 
 export default function HomePage(): React.JSX.Element {
   return (
-    <>
-      <Header />
+    <PublicLayout>
+      <Navbar variant="warm" />
       <main>
         <HeroSection />
-        <FeatureHighlights />
         <Suspense fallback={<PublicDebatePreviewSkeleton />}>
           <PublicDebatePreview />
         </Suspense>
+        <FeatureHighlights />
         <PricingCTA />
       </main>
       <Footer />
-    </>
+    </PublicLayout>
   );
 }

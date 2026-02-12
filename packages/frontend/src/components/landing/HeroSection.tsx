@@ -2,27 +2,29 @@ import Link from "next/link";
 
 export function HeroSection(): React.JSX.Element {
   return (
-    <section className="mx-auto max-w-5xl px-4 py-20 text-center">
-      <h1 className="text-5xl font-bold leading-tight tracking-tight sm:text-6xl">
-        Structured Debate, <span className="text-[var(--color-thesis)]">Powered by AI</span>
+    <section className="mx-auto max-w-5xl px-4 py-20 text-center sm:px-6 sm:py-28 lg:px-8">
+      <h1 className="font-serif-display text-[40px] font-bold leading-[48px] tracking-[-0.02em] text-[var(--pub-text)] sm:text-[52px] sm:leading-[60px]">
+        Every idea deserves
+        <br />a worthy opponent.
       </h1>
-      <p className="mx-auto mt-6 max-w-2xl text-lg text-[var(--color-text-secondary)]">
-        Create debates, generate rigorous arguments with AI agents, stress-test ideas through
-        adversarial reasoning, and record the strongest ones on-chain.
+      <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-[var(--pub-text-sec)]">
+        Seven AI models generate arguments. They compete. Only the strongest survive.
       </p>
-      <div className="mt-10 flex justify-center gap-4">
-        <Link
-          href="/debates"
-          className="rounded-lg bg-[var(--color-thesis)] px-8 py-3 text-lg font-semibold text-white hover:opacity-90 transition-opacity"
-        >
-          Browse Debates
-        </Link>
+      <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
         <Link
           href="/debates/new"
-          className="rounded-lg border-2 border-[var(--color-border)] px-8 py-3 text-lg font-semibold hover:bg-[var(--color-bg-secondary)] transition-colors"
+          className="inline-flex items-center rounded-lg bg-[var(--pub-accent)] px-8 py-3 text-lg font-medium text-white transition-colors hover:bg-[var(--pub-accent-hover)]"
         >
-          Create a Debate
+          Start Your Debate
+          <span className="ml-2">&rarr;</span>
         </Link>
+        <a
+          href="#how-it-works"
+          className="inline-flex items-center rounded-lg px-8 py-3 text-lg font-medium text-[var(--pub-text-sec)] transition-colors hover:bg-[var(--pub-section)]"
+        >
+          See How It Works
+          <span className="ml-2">&darr;</span>
+        </a>
       </div>
     </section>
   );

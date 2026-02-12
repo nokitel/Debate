@@ -1,4 +1,5 @@
 import type { Session } from "neo4j-driver";
+import neo4j from "neo4j-driver";
 import { randomUUID } from "node:crypto";
 import type { Argument, RejectedArgument } from "@dialectical/shared";
 import { extractNode } from "./helpers.js";
@@ -108,7 +109,7 @@ export async function getRejectedArguments(
       `MATCH (parent:Argument {id: $parentId})-[:EXPLORED]->(r:RejectedArgument)
        WHERE r.debateId = $debateId
        RETURN r ORDER BY r.createdAt DESC LIMIT $limit`,
-      { parentId, debateId, limit },
+      { parentId, debateId, limit: neo4j.int(limit) },
     );
 
     return result.records
@@ -119,7 +120,7 @@ export async function getRejectedArguments(
   const result = await session.run(
     `MATCH (r:RejectedArgument {debateId: $debateId})
      RETURN r ORDER BY r.createdAt DESC LIMIT $limit`,
-    { debateId, limit },
+    { debateId, limit: neo4j.int(limit) },
   );
 
   return result.records

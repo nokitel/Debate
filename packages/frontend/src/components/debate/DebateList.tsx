@@ -28,7 +28,20 @@ export function DebateList({
   });
 
   if (isLoading) {
-    return <p className="text-center text-[var(--color-text-secondary)]">Loading debates...</p>;
+    return (
+      <div className="space-y-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div
+            key={i}
+            className="animate-pulse rounded-xl border border-[var(--pub-border)] bg-[var(--pub-surface)] p-6"
+          >
+            <div className="h-5 w-3/4 rounded bg-[var(--pub-section)]" />
+            <div className="mt-3 h-4 w-1/2 rounded bg-[var(--pub-section)]" />
+            <div className="mt-3 h-3 w-1/3 rounded bg-[var(--pub-section)]" />
+          </div>
+        ))}
+      </div>
+    );
   }
 
   if (error) {
@@ -37,22 +50,22 @@ export function DebateList({
 
   if (!data || data.debates.length === 0) {
     return (
-      <p className="text-center text-[var(--color-text-secondary)]">
+      <p className="py-12 text-center text-[var(--pub-text-sec)]">
         No debates yet. Create one to get started!
       </p>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {data.debates.map((debate) => (
         <DebateCard key={debate.id} debate={debate} />
       ))}
       {data.hasNext && data.nextCursor && (
-        <div className="text-center">
+        <div className="pt-4 text-center">
           <button
             onClick={() => setCursor(data.nextCursor ?? undefined)}
-            className="rounded-md border border-[var(--color-border)] px-4 py-2 text-sm font-medium hover:bg-[var(--color-bg-secondary)]"
+            className="rounded-lg border border-[var(--pub-border)] bg-[var(--pub-surface)] px-6 py-2.5 text-sm font-medium text-[var(--pub-text)] transition-colors hover:bg-[var(--pub-section)]"
           >
             Load More
           </button>

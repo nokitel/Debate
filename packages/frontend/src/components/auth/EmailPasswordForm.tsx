@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { trpc } from "@/lib/trpc";
 import { useUIStore } from "@/stores/ui-store";
+import { useAuthStore } from "@/stores/auth-store";
 
 interface EmailPasswordFormProps {
   mode: "login" | "register";
@@ -14,19 +15,31 @@ export function EmailPasswordForm({ mode }: EmailPasswordFormProps): React.JSX.E
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const closeLoginModal = useUIStore((s) => s.closeLoginModal);
+  const authLogin = useAuthStore((s) => s.login);
+  const utils = trpc.useUtils();
 
   const loginMutation = trpc.auth.login.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
+      authLogin(data.token, {
+        userId: data.userId,
+        email: data.email,
+        displayName: data.displayName,
+      });
       closeLoginModal();
-      window.location.reload();
+      void utils.invalidate();
     },
     onError: (err) => setError(err.message),
   });
 
   const registerMutation = trpc.auth.register.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
+      authLogin(data.token, {
+        userId: data.userId,
+        email: data.email,
+        displayName: data.displayName,
+      });
       closeLoginModal();
-      window.location.reload();
+      void utils.invalidate();
     },
     onError: (err) => setError(err.message),
   });
@@ -60,6 +73,7 @@ export function EmailPasswordForm({ mode }: EmailPasswordFormProps): React.JSX.E
       )}
       <input
         type="email"
+        name="email"
         placeholder="Email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
@@ -68,6 +82,7 @@ export function EmailPasswordForm({ mode }: EmailPasswordFormProps): React.JSX.E
       />
       <input
         type="password"
+        name="password"
         placeholder="Password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}

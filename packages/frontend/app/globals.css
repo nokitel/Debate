@@ -1,28 +1,137 @@
 @import "tailwindcss";
 
+/* ============================================
+   Dialectical Engine — Design System
+   Two-context system: Public (warm) + Canvas (dark)
+   ============================================ */
+
+/* --- Public pages (landing, debates list, pricing, profile) --- */
 :root {
+  --pub-bg: #faf8f5;
+  --pub-surface: #ffffff;
+  --pub-section: #f5f1eb;
+  --pub-text: #1c1917;
+  --pub-text-sec: #78716c;
+  --pub-border: #e7e5e4;
+  --pub-accent: #b45309;
+  --pub-accent-hover: #92400e;
+
+  /* --- Debate canvas (workspace) --- */
+  --canvas-bg: #0f1420;
+  --canvas-surface: #161d2f;
+  --canvas-surface-h: #1c2540;
+  --canvas-text: #f1f5f9;
+  --canvas-text-sec: #94a3b8;
+  --canvas-border: #1e293b;
+  --canvas-accent: #818cf8;
+
+  /* --- Semantic colors (shared everywhere) --- */
+  --color-thesis: #3b82f6;
   --color-pro: #22c55e;
   --color-con: #ef4444;
-  --color-thesis: #3b82f6;
-  --color-bg: #ffffff;
-  --color-bg-secondary: #f8fafc;
-  --color-text: #0f172a;
-  --color-text-secondary: #475569;
-  --color-border: #e2e8f0;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: #0f172a;
-    --color-bg-secondary: #1e293b;
-    --color-text: #f8fafc;
-    --color-text-secondary: #94a3b8;
-    --color-border: #334155;
+    --pub-bg: #1a1814;
+    --pub-surface: #24211b;
+    --pub-section: #1f1c17;
+    --pub-text: #faf5f0;
+    --pub-text-sec: #a8a29e;
+    --pub-border: #44403c;
+    --pub-accent: #b45309;
+    --pub-accent-hover: #d97706;
   }
 }
 
 body {
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  font-family: system-ui, -apple-system, sans-serif;
+  background-color: var(--pub-bg);
+  color: var(--pub-text);
+}
+
+/* --- Font utility classes --- */
+.font-serif-display {
+  font-family: var(--font-source-serif), 'Georgia', serif;
+}
+
+.font-body {
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+.font-mono-data {
+  font-family: var(--font-jetbrains), 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Public page context --- */
+.pub-page {
+  background-color: var(--pub-bg);
+  color: var(--pub-text);
+}
+
+/* --- Canvas context --- */
+.canvas-page {
+  background-color: var(--canvas-bg);
+  color: var(--canvas-text);
+}
+
+/* --- Glow effects for canvas nodes --- */
+.glow-thesis {
+  box-shadow: 0 0 20px 4px rgba(59, 130, 246, 0.2);
+}
+
+.glow-pro {
+  box-shadow: 0 0 20px 4px rgba(34, 197, 94, 0.15);
+}
+
+.glow-con {
+  box-shadow: 0 0 20px 4px rgba(239, 68, 68, 0.15);
+}
+
+/* --- Pipeline slide-in animation --- */
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slide-out-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+.pipeline-enter {
+  animation: slide-in-right 0.3s ease-out forwards;
+}
+
+.pipeline-exit {
+  animation: slide-out-right 0.3s ease-in forwards;
+}
+
+/* --- Edge draw animation for new arguments --- */
+@keyframes edge-draw {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
+}
+
+.edge-animate {
+  stroke-dasharray: 100;
+  animation: edge-draw 0.5s ease-out forwards;
+}
+
+/* --- Score bar gradient --- */
+.score-gradient-green {
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+
+.score-gradient-amber {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.score-gradient-red {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+/* --- Pipeline progress bar indigo gradient --- */
+.progress-indigo {
+  background: linear-gradient(90deg, #6366f1, #818cf8);
 }

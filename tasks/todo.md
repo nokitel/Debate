@@ -222,12 +222,33 @@
 - Key lessons: tRPC v11 uses getRawInput() not rawInput, trpc-panel incompatible with v11, base.ts breaks circular deps
 - **Remaining manual tasks:** P6.OPS.01 (Hetzner), P6.OPS.02 (DNS), P6.OPS.04 (Tailscale), P5.SC.03 (devnet deploy)
 
+---
+
+# Phase 7 — Debate Interaction & E2E Verification
+
+## P7.FE — Frontend Debate Interaction Fixes
+- [x] P7.FE.01 — Add Navbar/Footer to debate detail page (`/debates/[id]`) <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.FE.02 — Create WriteArgumentButton component (user argument submission) <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.FE.03 — Add auth guards to GenerateButton (login modal if unauthenticated) <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.FE.04 — Wire WriteArgumentButton into ArgumentCard <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.FE.05 — Fix DebateView reactivity bug (getState() -> selector) <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.FE.06 — Add data-testid to LoginModal, name attrs to EmailPasswordForm <!-- COMPLETED: 2026-02-10 -->
+
+## P7.E2E — E2E Infrastructure & Tests
+- [x] P7.E2E.01 — Create batch-aware tRPC mock utility (`e2e/fixtures/trpc-mock.ts`) <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.E2E.02 — Update auth mock fixtures (add token field for JWT) <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.E2E.03 — Debate interaction E2E tests (6 tests, all passing) <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.E2E.04 — Set up Playwright MCP server (`.mcp.json`) <!-- COMPLETED: 2026-02-10 -->
+
+## Results
+- 3 new files: `WriteArgumentButton.tsx`, `trpc-mock.ts`, `debate-interaction.spec.ts`
+- 1 new config: `.mcp.json` (Playwright MCP)
+- 7 modified files: `page.tsx` (debate detail), `GenerateButton.tsx`, `ArgumentCard.tsx`, `DebateView.tsx`, `LoginModal.tsx`, `EmailPasswordForm.tsx`, `auth-mocks.ts`
+- 6/6 E2E tests pass (`debate-interaction.spec.ts`)
+- Zero new typecheck errors in modified files
+- Key bugs fixed: Rules of Hooks violation, non-reactive argument counts, missing auth guards
+- Key infrastructure: batch-aware tRPC mock utility for Playwright (solves httpBatchLink issue)
+
 ## Next Steps
-1. **Provision Hetzner CX33** (P6.OPS.01) — create server, install Docker, configure firewall
-2. **Configure DNS** (P6.OPS.02) — A/AAAA records for dezbatere.ro, Certbot TLS
-3. **Set up Tailscale** (P6.OPS.04) — tunnel between VPS and Mac Mini for Ollama
-4. **Deploy smart contract** (P5.SC.03) — requires Rust toolchain + mxpy on a machine with the tools
-5. **First deploy** — `git tag v0.1.0 && git push --tags` to trigger deploy workflow
-6. **Fix pre-existing type errors** — relayer.ts (sdk-core types), subscription.ts (argumentsLimit null), agent-generate.ts (THESIS type), WalletConnect.tsx (sdk-dapp hooks), multiversx-provider.tsx (DappProvider types)
-7. **Run full E2E suite** — `pnpm turbo test:e2e` to validate all 6 phase gate tests pass together
-8. **Lighthouse audit** — run on landing page after deployment to validate Core Web Vitals
+- [x] P7.FE.07 — DebateCard: show creator display name instead of raw UUID <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.FE.08 — Clean up duplicate test debates from Neo4j database <!-- COMPLETED: 2026-02-10 -->

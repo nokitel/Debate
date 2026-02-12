@@ -28,6 +28,7 @@
     "bcryptjs": "^3.0.3",
     "express": "^5.0.0",
     "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
     "neo4j-driver": "^5.27.0",
     "next-auth": "^5.0.0-beta.25",
     "zod": "^3.24.0"
@@ -35,6 +36,7 @@
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
     "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"

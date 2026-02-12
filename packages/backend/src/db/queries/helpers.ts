@@ -12,8 +12,21 @@ function toJsNumber(value: unknown): number {
 }
 
 /**
+ * Fields that must be explicitly null (not undefined) when missing from Neo4j.
+ * Neo4j omits null properties from nodes, but Zod `.nullable()` requires
+ * an explicit `null` value rather than the property being absent (undefined).
+ *
+ * Do NOT include `.optional()` fields here -- those should stay undefined.
+ */
+const NULLABLE_FIELDS: ReadonlyArray<string> = [
+  "resilienceScore",
+  "parentId",
+];
+
+/**
  * Convert a Neo4j node's properties to a plain JavaScript object.
- * Handles Neo4j Integer → number conversion.
+ * Handles Neo4j Integer -> number conversion and ensures nullable fields
+ * that Neo4j omits are explicitly set to null.
  */
 export function nodeToPlain<T>(node: Node): T {
   const props: Record<string, unknown> = {};
@@ -26,6 +39,15 @@ export function nodeToPlain<T>(node: Node): T {
       props[key] = value;
     }
   }
+
+  // Ensure known nullable fields are explicitly null when missing.
+  // Neo4j omits properties set to null, but Zod .nullable() requires null, not undefined.
+  for (const field of NULLABLE_FIELDS) {
+    if (!(field in props)) {
+      props[field] = null;
+    }
+  }
+
   return props as T;
 }
 

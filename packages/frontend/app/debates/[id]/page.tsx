@@ -1,4 +1,6 @@
-import { Header } from "@/components/layout/Header";
+import { Navbar } from "@/components/layout/Navbar";
+import { PublicLayout } from "@/components/layout/PublicLayout";
+import { Footer } from "@/components/landing/Footer";
 import { DebateView } from "@/components/debate/DebateView";
 import { LoginModal } from "@/components/auth/LoginModal";
 
@@ -10,12 +12,11 @@ export default async function DebatePage({ params }: DebatePageProps): Promise<R
   const { id } = await params;
 
   return (
-    <>
-      <Header />
-      <main className="mx-auto max-w-4xl px-4 py-8">
-        <DebateView debateId={id} />
-      </main>
+    <PublicLayout>
+      <Navbar variant="warm" />
+      <DebateView debateId={id} />
+      <Footer />
       <LoginModal />
-    </>
+    </PublicLayout>
   );
 }

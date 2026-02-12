@@ -6,26 +6,38 @@ import {
   mockOnChainRecording,
   MOCK_WALLET_ADDRESS,
 } from "./fixtures/phase5-mocks";
+import {
+  assertTailwindActive,
+  assertStyledHeading,
+  assertStyledButton,
+  takeScreenshot,
+} from "./fixtures/visual-helpers";
 
 test.describe("Phase 5 Gate Test: Blockchain Integration", () => {
   test("wallet connection: connect, verify address displayed, disconnect", async ({ page }) => {
     await mockWalletFlow(page);
 
-    // Navigate to wallet page
+    // Navigate to wallet page and verify styling
     await page.goto("/profile/wallet");
+    await assertTailwindActive(page);
 
-    // Verify the page loaded
+    // Verify the page loaded with styled heading
     await expect(page.locator('[data-testid="wallet-page"]')).toBeVisible();
     await expect(page.locator("h1")).toContainText("MultiversX Wallet");
+    await assertStyledHeading(page.locator("h1").first(), 20);
 
     // The wallet connect component should be visible
     await expect(page.locator('[data-testid="wallet-connect"]')).toBeVisible();
 
-    // Verify provider buttons are displayed
+    // Verify provider buttons are displayed and styled
     await expect(page.locator('[data-testid="wallet-provider-xportal"]')).toBeVisible();
+    await assertStyledButton(page.locator('[data-testid="wallet-provider-xportal"]'));
     await expect(page.locator('[data-testid="wallet-provider-defi-wallet"]')).toBeVisible();
     await expect(page.locator('[data-testid="wallet-provider-web-wallet"]')).toBeVisible();
     await expect(page.locator('[data-testid="wallet-provider-ledger"]')).toBeVisible();
+
+    // Visual confirmation: wallet page with provider buttons
+    await takeScreenshot(page, "phase5-wallet-page");
   });
 
   test("subscription purchase: /pricing → click Subscribe on Thinker → verify tier", async ({
@@ -37,8 +49,9 @@ test.describe("Phase 5 Gate Test: Blockchain Integration", () => {
     // Navigate to pricing page
     await page.goto("/pricing");
 
-    // Verify pricing page loaded
+    // Verify pricing page loaded and styled
     await expect(page.locator('[data-testid="pricing-page"]')).toBeVisible();
+    await assertTailwindActive(page);
 
     // Verify all 4 tier cards are visible
     await expect(page.locator('[data-testid="tier-card-explorer"]')).toBeVisible();
@@ -63,6 +76,9 @@ test.describe("Phase 5 Gate Test: Blockchain Integration", () => {
 
     // Usage bar should be visible
     await expect(page.locator('[data-testid="usage-bar"]')).toBeVisible();
+
+    // Visual confirmation: subscription/profile page
+    await takeScreenshot(page, "phase5-subscription-profile");
   });
 
   test("on-chain recording: generate argument as paid user → verify tx hash appears", async ({

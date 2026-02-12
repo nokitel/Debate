@@ -652,6 +652,94 @@ packages/frontend/
 │   └── fixtures/phase5-mocks.ts        # mockWalletFlow, mockSubscriptionFlow, mockOnChainRecording
 ```
 
+## Debate Interaction & E2E Fixes (2026-02-10)
+
+### React Rules of Hooks: Store Selectors Are Hooks
+
+**Problem:** `useDebateStore((s) => s.arguments)` placed on line 88 of `DebateView.tsx` — after three early returns — caused "React has detected a change in the order of Hooks" crash.
+**Root cause:** `useDebateStore((s) => s.x)` is a hook call (calls `useSyncExternalStore` internally). It was placed after conditional early returns (loading, error, null checks), so on the first render it was never reached, but on subsequent renders it was — violating Rules of Hooks.
+**Original code:** Used `useDebateStore.getState().arguments` (non-reactive but not a hook — safe after early returns).
+**Fix:** Move all `useDebateStore(selector)` calls to the top of the component, before any conditional returns. Computed values (`proCount`, `conCount`) derived from store state can stay after early returns since they're plain JS, not hooks.
+**Rule:** `zustandStore((s) => s.field)` is ALWAYS a hook call. NEVER place it after conditional `return` statements. If you need store data after early returns, either (a) move the hook to the top and use the value later, or (b) use `zustandStore.getState().field` for non-reactive one-time reads (but lose reactivity).
+
+### tRPC httpBatchLink Breaks Individual Playwright Route Mocks
+
+**Problem:** All E2E tests failed — debate page never rendered. No `h1` element found after navigation.
+**Root cause:** `httpBatchLink` (the default tRPC link) combines multiple simultaneous queries into a single HTTP request with comma-separated procedure names in the URL path: `/api/trpc/debate.getById,debate.getTree?batch=1&input={...}`. Individual `page.route("**/api/trpc/debate.getById*")` patterns either (a) don't match the batched URL correctly, or (b) return a response array with only 1 entry when the batch expects 2.
+**Fix:** Created `e2e/fixtures/trpc-mock.ts` — a batch-aware utility that:
+1. Registers a single catch-all route via `page.route(/\/api\/trpc\//, handler)`
+2. Parses comma-separated procedure names from the URL path
+3. Dispatches to per-procedure handlers
+4. Assembles the correct batch response array (one entry per procedure)
+```typescript
+await mockTRPC(page, {
+  "debate.getById": debate,
+  "debate.getTree": () => [thesis],
+  "auth.login": authUser,
+  // ...
+});
+```
+**Rule:** When writing Playwright E2E tests for a tRPC app using `httpBatchLink`, NEVER use individual `page.route()` calls per procedure. Use a single catch-all interceptor that handles batch responses. The `trpc-mock.ts` utility in `e2e/fixtures/` handles this automatically.
+
+### Playwright Button Selector Ambiguity with Modal Overlays
+
+**Problem:** `page.click('button:text("Sign In")')` timed out with "intercepts pointer events" error in `loginViaModal`.
+**Root cause:** Two "Sign In" buttons existed on the page — one in the Navbar (behind the modal overlay) and one as the form submit button inside the modal. Playwright resolved the selector to 2 elements, picked the first (Navbar button), which was behind the modal's `fixed inset-0 bg-black/50` overlay.
+**Fix:** Scope all selectors inside `loginViaModal` to the modal container:
+```typescript
+const modal = page.locator('[data-testid="login-modal"]');
+await modal.locator('input[name="email"]').fill("test@example.com");
+await modal.locator('button[type="submit"]').click();
+```
+**Rule:** When interacting with modal dialogs in Playwright, ALWAYS scope selectors to the modal container (`data-testid` or role). Never use page-level `page.click('button:text("X")')` when the same text appears in both the page and the modal.
+
+### JSDoc Comments with Glob Patterns Cause Parser Errors
+
+**Problem:** `trpc-mock.ts` failed to parse: `Unterminated string constant` at line containing backtick-wrapped glob pattern.
+**Root cause:** A JSDoc comment contained `` `page.route("**/api/trpc/debate.getById*")` `` — the `**` inside the backtick-quoted string was interpreted as a glob/regex by the TypeScript parser (same class of issue as the Phase 3 arrow character lesson).
+**Fix:** Removed glob patterns from JSDoc comments. Described the concept in plain English instead.
+**Rule:** In JSDoc/TSDoc comments, avoid embedding `*` wildcard characters inside backtick code spans. The TypeScript parser can misinterpret them. Use plain English descriptions or escape them.
+
+### DebateCard Shows Raw createdBy UUID Instead of Display Name
+
+**Problem:** `/debates` page appears to show "duplicate" debates — multiple cards look identical with the same title, description, and a raw UUID string.
+**Root cause:** `DebateCard.tsx` renders `debate.createdBy` which is a raw user UUID (e.g., `dff9be0e-6529-...`). Multiple test debates were created by the same user with the same title, making them visually indistinguishable despite having different debate IDs.
+**Status:** TODO — needs fix. Options: (a) JOIN to User node in `listDebates` query to fetch `displayName`, (b) denormalize `createdByName` onto the Debate node at creation time.
+
+### Auth Mock Fixtures Must Include JWT Token Field
+
+**Problem:** E2E tests using auth mocks failed silently — login appeared to work but subsequent authenticated actions failed.
+**Root cause:** After the JWT auth migration, `auth.login` and `auth.register` responses include a `token` field that `EmailPasswordForm.onSuccess` passes to `authLogin(data.token, user)`. The mock fixtures only returned `{ userId }` (register) and `{ userId, email, displayName }` (login), missing the `token` field.
+**Fix:** Added `token: "mock-jwt-token"` to both `auth.register` and `auth.login` mock responses. Also added `email` and `displayName` to the register response to match the new backend output shape.
+**Rule:** When backend response shapes change (e.g., adding JWT token), update ALL mock fixtures in `e2e/fixtures/` to match. Search for the procedure name across all fixture files.
+
+---
+
+## Auth Fix (2026-02-08)
+
+### Always Verify at Runtime, Not Just Typecheck
+
+**Problem:** Auth flow was implemented and "verified" by running `pnpm turbo build && pnpm turbo typecheck` — but login/register was completely broken at runtime.
+**Root cause:** Multiple issues that only manifest at runtime:
+1. `NEXTAUTH_SECRET` env var was empty — `getSecret()` threw before any JWT was generated
+2. The backend dev server (tsx watch) had stale processes on port 4000 — new code never executed
+3. No actual HTTP request was sent to verify the API worked
+**Fix:** Added dev fallback for missing JWT secret. Killed stale server processes. Tested actual HTTP endpoints with curl/node.
+**Rule:** NEVER mark a task as "verified" based on TypeScript compilation alone. Always test at runtime:
+- Hit the actual endpoint with a real HTTP request
+- Check the dev server has the latest code (kill stale processes)
+- Verify env vars are set (or have dev fallbacks)
+- Test the full flow: register → login → authenticated request
+
+### Express 5 Does NOT Add req.body to Prototype
+
+**Problem:** Initial diagnosis assumed Express 5 added `req.body = undefined` on the prototype, breaking tRPC's body parser. Spent time on `delete req.body` and `express.json()` workarounds.
+**Root cause:** Express 5.2.1 does NOT add `body` to the request prototype at all. `'body' in req` is `false`. tRPC reads the raw stream correctly.
+**Actual issue:** The `{json:{...}}` wrapper format sent by curl was wrong. tRPC v11 with default transformer (identity) sends raw input without wrapper. The client sends `{"provider":"email",...}`, NOT `{"json":{"provider":"email",...}}`.
+**Rule:** When debugging tRPC body parsing, send the raw input object (no `{json:...}` wrapper) unless a custom transformer (superjson) is configured. The `{json:...}` wrapper is for superjson transformer, not the default v11 identity transformer.
+
+---
+
 ## Phase 6 (2026-02-08)
 
 ### tRPC v11 Middleware: getRawInput() Not rawInput

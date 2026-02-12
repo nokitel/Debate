@@ -35,6 +35,9 @@ export function DebateFilters({
     [router, searchParams],
   );
 
+  const inputClass =
+    "rounded-lg border border-[var(--pub-border)] bg-[var(--pub-surface)] px-3 py-2 text-sm text-[var(--pub-text)] focus:border-[var(--pub-accent)] focus:outline-none focus:ring-1 focus:ring-[var(--pub-accent)]/30";
+
   return (
     <div className="mb-6 flex flex-wrap items-center gap-3" data-testid="debate-filters">
       <select
@@ -42,24 +45,24 @@ export function DebateFilters({
         onChange={(e) =>
           updateParams({ sort: e.target.value === "newest" ? undefined : e.target.value })
         }
-        className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
+        className={inputClass}
         aria-label="Sort debates"
       >
-        <option value="newest">Newest</option>
-        <option value="oldest">Oldest</option>
-        <option value="most-arguments">Most Arguments</option>
+        <option value="newest">Sort: Newest</option>
+        <option value="oldest">Sort: Oldest</option>
+        <option value="most-arguments">Sort: Most Arguments</option>
       </select>
 
       <input
         type="text"
-        placeholder="Search titles..."
+        placeholder="Search debates..."
         defaultValue={titleSearch}
         onChange={(e) => updateParams({ search: e.target.value || undefined })}
-        className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-1.5 text-sm"
+        className={`${inputClass} min-w-[180px]`}
         aria-label="Search debate titles"
       />
 
-      <label className="flex items-center gap-1.5 text-sm text-[var(--color-text-secondary)]">
+      <label className="flex items-center gap-1.5 text-sm text-[var(--pub-text-sec)]">
         Min args:
         <input
           type="number"
@@ -69,7 +72,7 @@ export function DebateFilters({
             const val = parseInt(e.target.value, 10);
             updateParams({ minArgs: val > 0 ? val.toString() : undefined });
           }}
-          className="w-16 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm"
+          className={`w-16 ${inputClass}`}
           aria-label="Minimum arguments filter"
         />
       </label>

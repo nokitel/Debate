@@ -1,5 +1,6 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import type { PipelineTier } from "@dialectical/shared";
+import { verifyToken } from "../auth/jwt.js";
 
 export interface Context {
   userId: string | null;
@@ -15,14 +16,24 @@ export interface TieredContext {
 
 /**
  * Creates tRPC context from Express request.
- * Extracts userId from the authorization header (JWT token).
- * Auth.js session validation is done via the auth middleware.
+ * Extracts userId from the Authorization: Bearer header (JWT token).
+ * On invalid/expired token, silently sets userId to null so public procedures work.
  */
 export function createContext({ req }: CreateExpressContextOptions): Context {
-  // userId is set by the auth middleware on the request
-  const userId = ((req as unknown as Record<string, unknown>)["userId"] as string | null) ?? null;
-  const walletAddress =
-    ((req as unknown as Record<string, unknown>)["walletAddress"] as string | null) ?? null;
+  let userId: string | null = null;
+  const walletAddress: string | null = null;
+
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.slice(7);
+    try {
+      const payload = verifyToken(token);
+      userId = payload.userId;
+    } catch {
+      // Invalid or expired token — treat as unauthenticated
+    }
+  }
+
   return { userId, walletAddress };
 }
 

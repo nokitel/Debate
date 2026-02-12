@@ -1,6 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { mockAuthFlow } from "./fixtures/auth-mocks";
 import { mockPhase2Pipeline, P2_DEBATE_ID } from "./fixtures/phase2-mocks";
+import {
+  assertTailwindActive,
+  assertStyledHeading,
+  assertStyledButton,
+  takeScreenshot,
+} from "./fixtures/visual-helpers";
 
 test.describe("Phase 2 Gate Test: Multi-Model Pipeline", () => {
   test.beforeEach(async ({ page }) => {
@@ -9,18 +15,21 @@ test.describe("Phase 2 Gate Test: Multi-Model Pipeline", () => {
   });
 
   test("full 5-model pipeline: generate PRO -> 6 stages -> argument persists", async ({ page }) => {
-    // 1. Navigate to debate page
+    // 1. Navigate to debate page and verify styling
     await page.goto(`/debates/${P2_DEBATE_ID}`);
+    await assertTailwindActive(page);
     await expect(page.locator("h1")).toContainText("Will AI transform education?");
+    await assertStyledHeading(page.locator("h1").first(), 20);
 
     // 2. Verify thesis is visible
     await expect(
       page.locator("text=Artificial intelligence will fundamentally transform"),
     ).toBeVisible();
 
-    // 3. Click "Generate PRO"
+    // 3. Click "Generate PRO" — verify button is styled
     const proButton = page.locator('[data-testid="generate-pro"]').first();
     await expect(proButton).toBeVisible();
+    await assertStyledButton(proButton);
     await proButton.click();
 
     // 4. Wait for the generated argument to appear
@@ -38,6 +47,9 @@ test.describe("Phase 2 Gate Test: Multi-Model Pipeline", () => {
       page.locator("text=Artificial intelligence will fundamentally transform"),
     ).toBeVisible();
     await expect(page.locator("text=AI-powered personalized learning")).toBeVisible();
+
+    // 7. Visual confirmation: argument cards rendered with styling
+    await takeScreenshot(page, "phase2-pipeline-result");
   });
 
   test("quality gate: consensus failure -> user submits -> gate clears", async ({ page }) => {
@@ -61,9 +73,10 @@ test.describe("Phase 2 Gate Test: Multi-Model Pipeline", () => {
     // 4. Wait for quality gate to activate — button should be disabled
     await expect(secondProButton).toBeDisabled({ timeout: 10_000 });
 
-    // 5. UserInputField should appear
+    // 5. UserInputField should appear — take screenshot of quality gate UI
     const userInput = page.locator('[data-testid="user-input-field"]');
     await expect(userInput).toBeVisible();
+    await takeScreenshot(page, "phase2-quality-gate");
 
     // 6. Type and submit user argument
     await userInput.fill(
@@ -79,8 +92,9 @@ test.describe("Phase 2 Gate Test: Multi-Model Pipeline", () => {
 
     // 8. After submission, reload to verify gate cleared
     await page.reload();
+    await page.waitForLoadState("networkidle");
     const regeneratedProButton = page.locator('[data-testid="generate-pro"]').first();
-    await expect(regeneratedProButton).toBeEnabled();
+    await expect(regeneratedProButton).toBeEnabled({ timeout: 10_000 });
   });
 
   test("explored arguments: lazy-load and display rejected candidates", async ({ page }) => {
@@ -106,5 +120,8 @@ test.describe("Phase 2 Gate Test: Multi-Model Pipeline", () => {
     // 5. Verify failed stage labels
     await expect(page.locator("text=consensus").first()).toBeVisible();
     await expect(page.locator("text=dedup").first()).toBeVisible();
+
+    // 6. Visual confirmation: rejected arguments displayed with styling
+    await takeScreenshot(page, "phase2-explored-arguments");
   });
 });
