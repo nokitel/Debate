@@ -4,6 +4,15 @@ import Link from "next/link";
 import { useSubscription } from "@/hooks/useSubscription";
 import { UsageBar } from "./UsageBar";
 
+interface SubscriptionData {
+  tier: string;
+  isActive: boolean;
+  argumentsUsed: number;
+  argumentsLimit: number;
+  renewalDate: string | null;
+  xmoneySubscriptionId: string | null;
+}
+
 const TIER_LABELS: Record<string, string> = {
   explorer: "Explorer (Free)",
   thinker: "Thinker",
@@ -34,7 +43,8 @@ export function SubscriptionStatus(): React.JSX.Element {
     );
   }
 
-  const { tier, isActive, argumentsUsed, argumentsLimit, renewalDate } = info.data;
+  const { tier, isActive, argumentsUsed, argumentsLimit, renewalDate } =
+    info.data as SubscriptionData;
   const tierLabel = TIER_LABELS[tier] ?? tier;
 
   return (

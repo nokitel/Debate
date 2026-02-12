@@ -35,7 +35,7 @@ export async function PublicDebatePreview(): Promise<React.JSX.Element> {
   const backendUrl = process.env["NEXT_PUBLIC_BACKEND_URL"] ?? "http://localhost:4000";
 
   let debate: PopularDebate | null = null;
-  let previewArgs: PreviewArgument[] = [];
+  const previewArgs: PreviewArgument[] = [];
 
   try {
     const res = await fetch(

@@ -30,20 +30,24 @@ export function WalletConnect(): React.JSX.Element {
       // These are loaded dynamically to avoid SSR issues
       switch (provider) {
         case "xportal": {
-          const { useXPortalLogin } = await import("@multiversx/sdk-dapp/hooks");
-          // Hook-based login would be initiated through the provider
+          // @ts-expect-error — sdk-dapp not installed yet (P5.FE)
+          const { useXPortalLogin: _xportal } = await import("@multiversx/sdk-dapp/hooks");
+          // TODO(P5.FE): Hook-based login would be initiated through the provider
           break;
         }
         case "defi-wallet": {
-          const { useExtensionLogin } = await import("@multiversx/sdk-dapp/hooks");
+          // @ts-expect-error — sdk-dapp not installed yet (P5.FE)
+          const { useExtensionLogin: _extension } = await import("@multiversx/sdk-dapp/hooks");
           break;
         }
         case "web-wallet": {
-          const { useWebWalletLogin } = await import("@multiversx/sdk-dapp/hooks");
+          // @ts-expect-error — sdk-dapp not installed yet (P5.FE)
+          const { useWebWalletLogin: _webwallet } = await import("@multiversx/sdk-dapp/hooks");
           break;
         }
         case "ledger": {
-          const { useLedgerLogin } = await import("@multiversx/sdk-dapp/hooks");
+          // @ts-expect-error — sdk-dapp not installed yet (P5.FE)
+          const { useLedgerLogin: _ledger } = await import("@multiversx/sdk-dapp/hooks");
           break;
         }
       }

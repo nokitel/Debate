@@ -1,8 +1,20 @@
 "use client";
 
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, type ComponentType, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { getMultiversXConfig } from "@/lib/multiversx";
+
+/** Props accepted by sdk-dapp DappProvider. Typed locally until SDK is installed. */
+interface DappProviderProps {
+  children: ReactNode;
+  environment: string;
+  customNetworkConfig: {
+    name: string;
+    apiAddress: string;
+    chainId: string;
+    explorerAddress: string;
+  };
+}
 
 /**
  * Dynamic import of DappProvider with SSR disabled.
@@ -10,11 +22,12 @@ import { getMultiversXConfig } from "@/lib/multiversx";
  */
 const DappProvider = dynamic(
   async () => {
+    // @ts-expect-error — sdk-dapp not installed yet (P5.FE)
     const mod = await import("@multiversx/sdk-dapp/DappProvider");
-    return mod.DappProvider;
+    return mod.DappProvider as ComponentType<DappProviderProps>;
   },
   { ssr: false },
-);
+) as ComponentType<DappProviderProps>;
 
 interface MultiversXProviderProps {
   children: ReactNode;

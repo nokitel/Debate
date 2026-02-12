@@ -108,7 +108,7 @@ export function ArgumentCard({
             </span>
             <div className="h-1.5 w-20 overflow-hidden rounded-full bg-stone-200 dark:bg-stone-700">
               <div
-                className={`h-full rounded-full ${getScoreGradient(argument.resilienceScore!)}`}
+                className={`h-full rounded-full ${getScoreGradient(argument.resilienceScore ?? 0)}`}
                 style={{ width: `${resiliencePct}%` }}
               />
             </div>
