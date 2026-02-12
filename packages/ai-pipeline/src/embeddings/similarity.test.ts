@@ -83,7 +83,8 @@ describe("embedding utilities", () => {
       expect(results[0]).toHaveLength(384);
 
       // Verify normalized to unit length
-      const magnitude = Math.sqrt(results[0]!.reduce((sum, v) => sum + v * v, 0));
+      const vec = results[0] ?? [];
+      const magnitude = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
       expect(magnitude).toBeCloseTo(1.0, 10);
     });
 

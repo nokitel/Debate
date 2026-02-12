@@ -69,7 +69,7 @@ export async function runRefinement(
       maxTokens: config.maxTokens,
     });
 
-    const { refinedText, qualityScore } = result.object;
+    const { refinedText, qualityScore: _qualityScore } = result.object;
 
     // Replace text with refined version
     candidate.text = refinedText;
@@ -85,7 +85,6 @@ export async function runRefinement(
   } catch (error) {
     // Refinement failure is non-fatal — preserve original text
     const message = error instanceof Error ? error.message : "Refinement failed";
-    const durationMs = Date.now() - startTime;
     emit({ type: "stage-failed", stage: "final-refinement", error: message });
 
     return {

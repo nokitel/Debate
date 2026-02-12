@@ -93,6 +93,13 @@ export class RelayerService {
       throw new Error("RelayerService not initialized");
     }
 
+    // Capture narrowed references so TS knows they're non-null inside the closure
+    const signer = this.signer;
+    const relayerAddress = this.relayerAddress;
+    const provider = this.provider;
+    const factory = this.factory;
+    const transactionComputer = this.transactionComputer;
+
     return withTransactionQueue(async () => {
       const config = getBlockchainConfig();
       const contractAddress = Address.newFromBech32(config.contractAddress);
@@ -123,7 +130,7 @@ export class RelayerService {
       const qualityScore = Math.round(input.qualityScore * 10000);
 
       // Build the inner transaction (the SC call)
-      const innerTx = await this.factory!.createTransactionForExecute(this.relayerAddress!, {
+      const innerTx = await factory.createTransactionForExecute(relayerAddress, {
         contract: contractAddress,
         function: "storeArgument",
         gasLimit: BigInt(config.maxGasLimit),
@@ -137,19 +144,19 @@ export class RelayerService {
       });
 
       // Set relayer for Relayed v3
-      innerTx.relayer = this.relayerAddress!;
+      innerTx.relayer = relayerAddress;
 
       // Get relayer nonce
-      const relayerOnNetwork = await this.provider!.getAccount(this.relayerAddress!);
+      const relayerOnNetwork = await provider.getAccount(relayerAddress);
       innerTx.nonce = BigInt(relayerOnNetwork.nonce);
 
       // Sign the transaction
-      const serialized = this.transactionComputer!.computeBytesForSigning(innerTx);
-      const signature = await this.signer!.sign(serialized);
+      const serialized = transactionComputer.computeBytesForSigning(innerTx);
+      const signature = await signer.sign(serialized);
       innerTx.signature = signature;
 
       // Broadcast
-      const txHash = await this.provider!.sendTransaction(innerTx);
+      const txHash = await provider.sendTransaction(innerTx);
 
       // Store the tx hash on the Argument node in Neo4j
       const hashSession = getSession();

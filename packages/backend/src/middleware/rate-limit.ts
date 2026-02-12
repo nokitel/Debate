@@ -42,6 +42,61 @@ setInterval(
 );
 
 /**
+ * Core rate-limiting logic. Exported separately for unit testing.
+ * Throws TRPCError when rate limit is exceeded or user is unauthenticated.
+ */
+export function checkRateLimit(config: RateLimitConfig, userId: string): void {
+  if (!userId) {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: "Authentication required" });
+  }
+
+  if (!stores.has(config.name)) {
+    stores.set(config.name, new Map());
+  }
+
+  const key = config.keyExtractor ? config.keyExtractor({ userId }) : userId;
+  const limiterStore = stores.get(config.name) ?? new Map<string, WindowEntry[]>();
+  const now = Date.now();
+
+  let entries = limiterStore.get(key);
+  if (!entries) {
+    entries = config.windows.map((w) => ({ count: 0, resetAt: now + w.windowMs }));
+    limiterStore.set(key, entries);
+  }
+
+  // Reset expired windows
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    const windowConfig = config.windows[i];
+    if (!entry || !windowConfig) continue;
+    if (entry.resetAt <= now) {
+      entry.count = 0;
+      entry.resetAt = now + windowConfig.windowMs;
+    }
+  }
+
+  // Check each window
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    const window = config.windows[i];
+    if (!entry || !window) continue;
+
+    if (entry.count >= window.maxRequests) {
+      const retryAfterSec = Math.ceil((entry.resetAt - now) / 1000);
+      throw new TRPCError({
+        code: "TOO_MANY_REQUESTS",
+        message: `Rate limit exceeded (${window.maxRequests} per ${formatDuration(window.windowMs)}). Try again in ${retryAfterSec}s.`,
+      });
+    }
+  }
+
+  // Increment all windows
+  for (const entry of entries) {
+    entry.count++;
+  }
+}
+
+/**
  * Creates a tRPC middleware that enforces rate limiting.
  * Supports multiple windows (e.g. 5/minute AND 20/hour).
  * Throws TOO_MANY_REQUESTS when any window is exceeded.
@@ -53,48 +108,7 @@ export function createRateLimiter(config: RateLimitConfig): ReturnType<typeof mi
 
   return middleware(({ ctx, next }) => {
     const typedCtx = ctx as { userId: string };
-    if (!typedCtx.userId) {
-      throw new TRPCError({ code: "UNAUTHORIZED", message: "Authentication required" });
-    }
-
-    const key = config.keyExtractor ? config.keyExtractor(typedCtx) : typedCtx.userId;
-    const limiterStore = stores.get(config.name)!;
-    const now = Date.now();
-
-    let entries = limiterStore.get(key);
-    if (!entries) {
-      entries = config.windows.map((w) => ({ count: 0, resetAt: now + w.windowMs }));
-      limiterStore.set(key, entries);
-    }
-
-    // Reset expired windows
-    for (let i = 0; i < entries.length; i++) {
-      const entry = entries[i]!;
-      if (entry.resetAt <= now) {
-        entry.count = 0;
-        entry.resetAt = now + config.windows[i]!.windowMs;
-      }
-    }
-
-    // Check each window
-    for (let i = 0; i < entries.length; i++) {
-      const entry = entries[i]!;
-      const window = config.windows[i]!;
-
-      if (entry.count >= window.maxRequests) {
-        const retryAfterSec = Math.ceil((entry.resetAt - now) / 1000);
-        throw new TRPCError({
-          code: "TOO_MANY_REQUESTS",
-          message: `Rate limit exceeded (${window.maxRequests} per ${formatDuration(window.windowMs)}). Try again in ${retryAfterSec}s.`,
-        });
-      }
-    }
-
-    // Increment all windows
-    for (const entry of entries) {
-      entry.count++;
-    }
-
+    checkRateLimit(config, typedCtx.userId);
     return next();
   });
 }

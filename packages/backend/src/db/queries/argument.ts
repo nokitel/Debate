@@ -251,7 +251,7 @@ export async function getArgumentContext(
   }
 
   const ancestorNodes = ancestorRecord.get("ancestors") as unknown[];
-  const ancestors = ancestorNodes.map(
+  const _ancestors = ancestorNodes.map(
     (node) => extractNode<Argument>({ get: () => node } as never, "") ?? (node as Argument),
   );
 

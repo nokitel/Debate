@@ -5,7 +5,6 @@ import {
   EmailPasswordLoginInputSchema,
   MultiversXAuthInputSchema,
   LinkWalletInputSchema,
-  SessionSchema,
   UserSchema,
 } from "@dialectical/shared";
 import { router, publicProcedure, protectedProcedure } from "../trpc.js";
