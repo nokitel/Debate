@@ -252,3 +252,10 @@
 ## Next Steps
 - [x] P7.FE.07 — DebateCard: show creator display name instead of raw UUID <!-- COMPLETED: 2026-02-10 -->
 - [x] P7.FE.08 — Clean up duplicate test debates from Neo4j database <!-- COMPLETED: 2026-02-10 -->
+
+## P7.CI — CI Pipeline Fixes
+- [x] P7.CI.01 — Fix frontend ESLint errors (WalletConnect unused imports, ArgumentCard non-null assertion, PublicDebatePreview let→const, SubscriptionStatus type inference, multiversx-provider DappProvider typing) <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.CI.02 — Fix backend ESLint errors (relayer.ts 8 non-null assertions via local var capture, rate-limit.ts 5 non-null assertions via nullish coalescing, argument.ts unused var, auth.ts unused import) <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.CI.03 — Fix ai-pipeline ESLint errors (similarity.test.ts non-null assertion, 09-final-refinement.ts unused vars) <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.CI.04 — Rewrite rate-limit.test.ts (extract checkRateLimit() as testable function, fix MiddlewareBuilder not-callable bug) <!-- COMPLETED: 2026-02-10 -->
+- [x] P7.CI.05 — Verify full CI pipeline passes (build + typecheck + lint + test — all green) <!-- COMPLETED: 2026-02-10 -->

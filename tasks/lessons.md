@@ -715,6 +715,132 @@ await modal.locator('button[type="submit"]').click();
 
 ---
 
+## CI Pipeline Fixes (2026-02-10)
+
+### next build Runs TypeScript AND ESLint
+
+**Problem:** Commits passed `pnpm turbo typecheck` locally but failed CI at the `next build` step.
+**Root cause:** `next build` runs a full pipeline: webpack compilation → TypeScript type checking → ESLint linting. ESLint errors (unused vars, non-null assertions, `let` vs `const`) are build-fatal even if TypeScript is happy.
+**Fix:** Always run `pnpm turbo build` (which invokes `next build` for frontend) as part of local verification, not just `typecheck`.
+**Rule:** Before pushing, run the full CI command locally: `pnpm turbo build && pnpm turbo typecheck && pnpm turbo lint && pnpm turbo test`. Never assume `typecheck` alone is sufficient.
+
+### @ts-expect-error for Uninstalled SDK Dynamic Imports
+
+**Problem:** `WalletConnect.tsx` uses dynamic `import("@multiversx/sdk-dapp/hooks")` inside switch cases. Since sdk-dapp is listed as a dependency but not fully installed/resolved, TypeScript resolves the module to `{}`, causing "unused variable" errors when destructuring.
+**Root cause:** The sdk-dapp package resolves to empty type stubs when not properly installed. The destructured imports (e.g., `useXPortalLogin`) are typed as `never` and flagged as unused by ESLint.
+**Fix:** Add `@ts-expect-error` above each dynamic import and prefix unused destructured bindings with `_`:
+```typescript
+case "xportal": {
+  // @ts-expect-error — sdk-dapp not installed yet (P5.FE)
+  const { useXPortalLogin: _xportal } = await import("@multiversx/sdk-dapp/hooks");
+  break;
+}
+```
+**Rule:** When a dependency is declared but not yet installed/resolvable, use `@ts-expect-error` (not `@ts-ignore`) on the import line. `@ts-expect-error` will error if the suppression becomes unnecessary (after the SDK is installed), serving as a built-in cleanup reminder.
+
+### TypeScript this Narrowing Doesn't Survive Closures
+
+**Problem:** `relayer.ts` had a guard `if (!this.signer || !this.relayerAddress || ...) throw` followed by a closure using `this.signer`, `this.relayerAddress`, etc. TypeScript still required non-null assertions (`!`) inside the closure.
+**Root cause:** TypeScript narrows `this.property` after a truthiness check in the same scope, but this narrowing is lost inside nested closures/callbacks because TypeScript can't guarantee `this` hasn't mutated between the guard and the closure execution.
+**Fix:** Capture narrowed `this.*` properties in local `const` variables before entering the closure:
+```typescript
+if (!this.signer || !this.relayerAddress || !this.provider || !this.factory || !this.transactionComputer)
+  throw new Error("...");
+
+const signer = this.signer;
+const relayerAddress = this.relayerAddress;
+const provider = this.provider;
+const factory = this.factory;
+const transactionComputer = this.transactionComputer;
+
+return withTransactionQueue(async () => {
+  // Use local vars instead of this.* — no ! needed
+  const tx = factory.createTransactionForExecute(relayerAddress, {...});
+});
+```
+**Rule:** When using `this.*` properties inside closures/callbacks after a guard check, ALWAYS capture them in local `const` variables first. This eliminates non-null assertions and is actually safer (prevents TOCTOU issues if `this` is mutated concurrently).
+
+### tRPC v11 middleware() Returns MiddlewareBuilder, Not a Function
+
+**Problem:** `rate-limit.test.ts` cast `createRateLimiter(config)` to a function and called it directly: `(middlewareFn as Function)({ ctx, next })`. This threw `TypeError: middlewareFn is not a function`.
+**Root cause:** tRPC v11's `middleware()` returns a `MiddlewareBuilder` object (with `._middlewares` array), not a callable function. The builder is consumed by tRPC's procedure chain internally — you can't invoke it manually.
+**Fix:** Extract the core logic into a standalone testable function, then have the middleware wrapper call it:
+```typescript
+// Standalone, testable function
+export function checkRateLimit(config: RateLimitConfig, userId: string): void {
+  if (!userId) throw new TRPCError({ code: "UNAUTHORIZED", message: "Authentication required" });
+  // ... rate limiting logic
+}
+
+// Thin middleware wrapper
+export function createRateLimiter(config: RateLimitConfig) {
+  return middleware(({ ctx, next }) => {
+    checkRateLimit(config, (ctx as { userId: string }).userId);
+    return next();
+  });
+}
+
+// Tests call checkRateLimit() directly
+```
+**Rule:** Never try to invoke tRPC middleware directly in tests. Extract the business logic into a standalone function, test that, and keep the middleware wrapper as a thin integration layer. This is also better architecture — separation of concerns.
+
+### tRPC Type Inference Returning {} for Complex Output Schemas
+
+**Problem:** `SubscriptionStatus.tsx` accessed `info.data.tier` but TypeScript reported `Property 'tier' does not exist on type '{}'`.
+**Root cause:** When tRPC output schemas are complex or go through multiple layers of abstraction, the inferred type on the React Query side can degrade to `{}`. This happens particularly when the procedure chain uses custom middleware that obscures the context type.
+**Fix:** Define a local interface matching the expected shape and cast:
+```typescript
+interface SubscriptionData {
+  tier: string;
+  isActive: boolean;
+  argumentsUsed: number;
+  argumentsLimit: number;
+  renewalDate: string | null;
+  xmoneySubscriptionId: string | null;
+}
+const { tier, isActive, ... } = info.data as SubscriptionData;
+```
+**Rule:** When tRPC type inference degrades to `{}` on the frontend, use a local interface + cast rather than fighting the inference chain. This is a pragmatic workaround — document with a comment referencing the source procedure for future cleanup when tRPC inference improves.
+
+### Dynamic Import Type Resolution for Uninstalled Packages
+
+**Problem:** `multiversx-provider.tsx` used `dynamic(() => import("@multiversx/sdk-dapp/DappProvider"))` but `DappProvider` resolved to `ComponentType<{}>`, so passing `children` caused "Property 'children' does not exist on type 'IntrinsicAttributes'".
+**Root cause:** Since sdk-dapp isn't fully installed, TypeScript resolves the module to `{}`. The `dynamic()` wrapper then infers `ComponentType<{}>` — a component that accepts no props.
+**Fix:** Define the props interface locally and assert the type:
+```typescript
+interface DappProviderProps {
+  children: ReactNode;
+  environment: string;
+  customNetworkConfig: { name: string; apiAddress: string; chainId: string; explorerAddress: string };
+}
+
+const DappProvider = dynamic(
+  async () => {
+    // @ts-expect-error — sdk-dapp not installed yet
+    const mod = await import("@multiversx/sdk-dapp/DappProvider");
+    return mod.DappProvider as ComponentType<DappProviderProps>;
+  },
+  { ssr: false },
+) as ComponentType<DappProviderProps>;
+```
+**Rule:** For uninstalled SDK dynamic imports in Next.js, define the expected prop interface locally and dual-cast (inside the factory + on the `dynamic()` result). This ensures type safety for callers while acknowledging the missing module.
+
+### let vs const for Arrays Mutated via push()
+
+**Problem:** ESLint flagged `let previewArgs = [...]` with "'previewArgs' is never reassigned. Use 'const' instead."
+**Root cause:** The variable was declared with `let` because items were added via `.push()`. But `.push()` mutates the array in place — it doesn't reassign the variable. `const` prevents reassignment, not mutation.
+**Fix:** Change `let previewArgs` to `const previewArgs`.
+**Rule:** Use `const` for arrays and objects even if you mutate their contents (push, splice, set properties). Only use `let` when the variable itself is reassigned (`x = newValue`). `const` means "the binding doesn't change," not "the value is immutable."
+
+### Fix Pre-existing CI Failures Proactively
+
+**Problem:** The Phase 7 commit (`7c3ec76`) failed CI, but investigation revealed many errors were pre-existing from Phase 5/6 commits. The previous P6 commit also failed CI.
+**Root cause:** CI was never verified locally with the full lint pipeline. `pnpm turbo typecheck` passed but `next build` (which runs ESLint) was not part of the verification step.
+**Fix:** Fixed 12+ ESLint/TypeScript errors across 3 packages (frontend, backend, ai-pipeline) in two follow-up commits.
+**Rule:** When CI fails, check if the errors are pre-existing (use `git stash && pnpm turbo lint` to verify). Fix all existing errors, not just the ones you introduced. A broken CI pipeline blocks everyone.
+
+---
+
 ## Auth Fix (2026-02-08)
 
 ### Always Verify at Runtime, Not Just Typecheck
