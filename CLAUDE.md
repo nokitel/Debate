@@ -41,6 +41,32 @@ Read `Plan.md` Section 1 for the full ADR table. Key constraints:
 - NEVER add `version:` field to Docker Compose files — obsolete since Compose v2
 
 
+## Agent Team
+
+This project uses Claude Code agent teams. Enable with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in settings.json (already configured).
+
+### Agents & File Ownership
+
+| Agent | Model | Owns | Role |
+|-------|-------|------|------|
+| `orchestrator` | Opus | — (coordination only) | Team lead, delegates work |
+| `researcher` | Sonnet | Read-only | Gathers docs, APIs, ecosystem info |
+| `ui-designer` | Sonnet | `packages/frontend/**` | Next.js components, pages, UX |
+| `backend-dev` | Sonnet | `packages/backend/**`, `packages/ai-pipeline/**` | tRPC API, Neo4j, LLM pipeline |
+| `multiversx-expert` | Sonnet | `packages/contracts/**`, `packages/backend/src/blockchain/**` | Smart contracts, SDK, payments |
+| `tester` | Sonnet | `**/*.test.ts`, `e2e/**`, `tests/**` | All test files |
+| `debugger` | Sonnet | Any (coordinated) | Bug investigation + targeted fixes |
+| `optimizer` | Sonnet | Any (coordinated) | Performance, architecture improvements |
+| `qa-agent` | Sonnet | Read-only | Verifies against Plan.md criteria |
+| `code-reviewer` | Sonnet | Read-only | Code quality, security, patterns |
+| `contrarian` | Opus | Read-only (plan mode) | Challenges decisions, finds weaknesses |
+
+### Ownership Rules
+1. Each agent edits ONLY files in its owned directories
+2. `debugger` and `optimizer` can edit any file but MUST message the owner first
+3. `packages/shared/**` is READ-ONLY — no agent modifies it without human approval
+4. Read-only agents (researcher, qa, reviewer, contrarian) NEVER create or edit files
+
 ## Skill Files
 
 Read the relevant skill before working on a package:

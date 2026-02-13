@@ -2,7 +2,7 @@
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["@anthropic-ai/mcp-playwright"]
+      "args": ["@playwright/mcp@latest"]
     }
   }
 }

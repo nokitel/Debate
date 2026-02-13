@@ -142,7 +142,17 @@ dialectical-engine/
 │   │   ├── mvx-ai-tools/SKILL.md    # ACP, x402, MCP, agent-kit, xPilot
 │   │   └── testing/SKILL.md          # Vitest, Playwright patterns
 │   ├── agents/
-│   │   └── code-reviewer.md          # PR review agent instructions
+│   │   ├── orchestrator.md       # Team lead — coordinates all agents
+│   │   ├── researcher.md         # Information gatherer (read-only)
+│   │   ├── ui-designer.md        # Frontend specialist (owns packages/frontend/)
+│   │   ├── backend-dev.md        # API & pipeline dev (owns packages/backend/, ai-pipeline/)
+│   │   ├── multiversx-expert.md  # Blockchain specialist (owns packages/contracts/)
+│   │   ├── tester.md             # Test engineer (owns all test files)
+│   │   ├── debugger.md           # Bug hunter (any file, coordinated)
+│   │   ├── optimizer.md          # Performance & architecture improvements
+│   │   ├── qa-agent.md           # Verification specialist (read-only)
+│   │   ├── code-reviewer.md      # Code quality guardian (read-only)
+│   │   └── contrarian.md         # Devil's advocate (read-only, plan mode)
 │   └── commands/
 │       └── implement-feature.md      # Feature implementation workflow
 ├── packages/
